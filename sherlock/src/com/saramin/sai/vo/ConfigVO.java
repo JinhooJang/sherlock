@@ -1,4 +1,4 @@
-package com.tistory.needjarvis.vo;
+package com.saramin.sai.vo;
 
 
 /**
@@ -12,6 +12,8 @@ public class ConfigVO {
 	private String logPath;
 	/** 데이터 경로 */
 	private String dataPath;
+	/** 개발 모드 여부 */
+	private boolean debug;	
 	
 	
 	public String getLogPath() {
@@ -26,4 +28,10 @@ public class ConfigVO {
 	public void setDataPath(String dataPath) {
 		this.dataPath = dataPath;
 	}
+	public boolean isDebug() {
+		return debug;
+	}
+	public void setDebug(boolean debug) {
+		this.debug = debug;
+	}	
 }
