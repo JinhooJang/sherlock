@@ -119,8 +119,6 @@ public class SherlockExecutor {
 	 * 연산을 수행하는 스크립터
 	 */
 	public void bulk() {
-		List<String> result = new ArrayList<String> ();
-		
 		// 타이틀, 해시, 이력서 번호의 맵으로 세팅한다
 		long startTime = System.currentTimeMillis();
 		HashMap<String, HashMap<String, List<String>>> hashedMap = getHashedData();
@@ -135,13 +133,6 @@ public class SherlockExecutor {
 				if(map.get(sentence).size() > 2) {
 					System.out.println("title : " + title);
 					System.out.println(sentence + " " + map.get(sentence));
-					
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
 				}
 			}
 		}
@@ -207,7 +198,11 @@ public class SherlockExecutor {
 		
 		BufferedReader br = null;
 		HashMap<String, HashMap<String, List<String>>> hashedMap = null;
-		File[] docs = new File(CONFIG.getDataPath() + "pre-data/match/plagiarize2/").listFiles();
+		File[] docs = new File(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/plagiarize/").listFiles();
+		
+		// 이력서-제목별 유사 이력서 찾기
+		HashMap<String, HashMap<String, List<String>>> resTitle 
+					= new HashMap<String, HashMap<String, List<String>>> (); 
 		
 		try {
 			hashedMap = new HashMap<String, HashMap<String, List<String>>> ();
@@ -216,6 +211,7 @@ public class SherlockExecutor {
 				br = new BufferedReader(
 						new InputStreamReader(
 								new FileInputStream(doc.getAbsolutePath()), "UTF8"));
+				
 				String line = null;
 				
 				while ((line = br.readLine()) != null) {
@@ -223,18 +219,25 @@ public class SherlockExecutor {
 						SHRELOCK_MODULE.parseHashData(line, hashedMap);
 						
 						// sherlock module
-						/*for(String title : hashedMap.keySet()) {
+						for(String title : hashedMap.keySet()) {
+							// 제목이 유사한 맵을 찾는다
 							HashMap<String, List<String>> map = hashedMap.get(title);
 							
+							// 맵별, 문장들로 루프 수행 
 							for(String sentence : map.keySet()) {
 								if(map.get(sentence).size() > 1) {
 									System.out.println("title : " + title);
 									System.out.println(sentence + " " + map.get(sentence));
 									Thread.sleep(100);
+									
+									/*for(int i = 0; i < map.get(sentence).size(); i++) {
+										if(resTitle.containsKey(key))
+									}*/
+									
 								}
 							}
 														
-						}*/						
+						}						
 					}
 				}
 
