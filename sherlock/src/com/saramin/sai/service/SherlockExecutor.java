@@ -119,6 +119,7 @@ public class SherlockExecutor {
 	 * 연산을 수행하는 스크립터
 	 */
 	public void bulk() {
+		
 		// 타이틀, 해시, 이력서 번호의 맵으로 세팅한다
 		long startTime = System.currentTimeMillis();
 		HashMap<String, HashMap<String, List<String>>> hashedMap = getHashedData();
@@ -126,20 +127,26 @@ public class SherlockExecutor {
 		LOGGER.info("getHashedData elapsed " + (endTime-startTime) + "(ms)");
 		
 		// debug
-		for(String title : hashedMap.keySet()) {
+		/*for(String title : hashedMap.keySet()) {
 			HashMap<String, List<String>> map = hashedMap.get(title);
 			
 			for(String sentence : map.keySet()) {
 				if(map.get(sentence).size() > 2) {
 					System.out.println("title : " + title);
 					System.out.println(sentence + " " + map.get(sentence));
+					
+					try {
+						Thread.sleep(50);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
 				}
 			}
-		}
+		}*/
 		
 		// 신규 문서를 읽은 후, 형태소 분석 -> 해시 수행 후 유사 이력서 번호 리스트를 가져온다
 		BufferedReader br = null;
-		File[] docs = new File(CONFIG.getDataPath() + "pre-data/match/plagiarize2/").listFiles();
+		File[] docs = new File(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/plagiarize/").listFiles();
 		
 		try {
 			for(File doc : docs) {
@@ -219,7 +226,7 @@ public class SherlockExecutor {
 						SHRELOCK_MODULE.parseHashData(line, hashedMap);
 						
 						// sherlock module
-						for(String title : hashedMap.keySet()) {
+						/*for(String title : hashedMap.keySet()) {
 							// 제목이 유사한 맵을 찾는다
 							HashMap<String, List<String>> map = hashedMap.get(title);
 							
@@ -230,14 +237,11 @@ public class SherlockExecutor {
 									System.out.println(sentence + " " + map.get(sentence));
 									Thread.sleep(100);
 									
-									/*for(int i = 0; i < map.get(sentence).size(); i++) {
-										if(resTitle.containsKey(key))
-									}*/
 									
 								}
 							}
 														
-						}						
+						}				*/		
 					}
 				}
 
