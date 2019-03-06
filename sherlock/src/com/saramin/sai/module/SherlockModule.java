@@ -137,10 +137,40 @@ public class SherlockModule {
 			bw = new BufferedWriter(
 					new OutputStreamWriter(
 					new FileOutputStream(
-						CONFIG.getDataPath() + "/pre-data/match/plagiarize/" + name + ".csv", false),	// true to append 
+						CONFIG.getDataPath() + "/pre-data/galaxy/sherlock/plagiarize/" + name + ".csv", false),	// true to append 
 						StandardCharsets.UTF_8));	// set encoding utf-8
 			
 			for(String line : resultList) {
+				bw.write(line + NEWLINE);
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();
+			return false;
+		}
+		
+		return true;
+	}
+	
+	
+	/**
+	 * CSV 형태로 결과를 내린다
+	 * 
+	 * @param resultList
+	 * @param _name
+	 */
+	public boolean makeCSV(List<String> list) {
+		BufferedWriter bw;
+		String filePath = CONFIG.getDataPath() + "/result-data/sherlock/bulk/sherlock-bulk.csv";
+						
+		try {	
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(filePath, false),	// true to append 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			for(String line : list) {
 				bw.write(line + NEWLINE);
 			}
 			

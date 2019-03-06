@@ -2,7 +2,7 @@
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
 	<!-- common -->
-	<entry key="config.serverId">local-analyzer</entry>
+	<entry key="config.serverId">sherlock</entry>
 	<entry key="config.dataPath">C:/Project/AI/SAI/Database/</entry>
 	<entry key="config.logPath">C:/Project/AI/SAI/Logs/</entry>
 	<entry key="config.modelPath">C:/Project/AI/SAI/Model/</entry>

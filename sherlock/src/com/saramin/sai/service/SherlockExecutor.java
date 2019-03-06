@@ -69,11 +69,12 @@ public class SherlockExecutor {
 		BufferedReader br = null;
 		File[] raws = null;
 		// 자기소개서의 경로
-		String mode = "raw-data/intro-doc/inc/";
+		String mode = "raw-data/intro-docs/inc/";
 		
 		if(isBulk) {
-			mode = "raw-data/intro-doc/bulk/";
+			mode = "raw-data/intro-docs/bulk/";
 		}
+		System.out.println(mode);
 		raws = new File(CONFIG.getDataPath() + mode).listFiles();
 		
 		for(File doc : raws) {
@@ -147,6 +148,7 @@ public class SherlockExecutor {
 		// 신규 문서를 읽은 후, 형태소 분석 -> 해시 수행 후 유사 이력서 번호 리스트를 가져온다
 		BufferedReader br = null;
 		File[] docs = new File(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/plagiarize/").listFiles();
+		List<String> csvList = new ArrayList<String> ();
 		
 		try {
 			for(File doc : docs) {
@@ -154,25 +156,62 @@ public class SherlockExecutor {
 						new InputStreamReader(
 								new FileInputStream(doc.getAbsolutePath()), "UTF8"));
 				String line = null;
-				int total = 0;
+				int sentenceCnt = 0;
 				
 				while ((line = br.readLine()) != null) {
-					total = 0;
+					sentenceCnt = 0;
 					
-					if(line.trim().length() > 0) {
-						String[] temp = line.split(",");
-						String[] items = temp[1].split("\\#");
-						HashMap<String, Integer> resCnt = new HashMap<String, Integer> ();
+					if(line.trim().length() == 0) continue;
+					
+					String[] temp = line.split(",");
+					String[] items = temp[1].split("\\#");
+					HashMap<String, Integer> resCnt = new HashMap<String, Integer> ();
+					
+					// 항목별
+					for(String item : items) {
+						String[] value = item.split("\\^");
+						// temp[0] 이력서번호, value[0] 소제목, value[1] 문장들
 						
-						// 항목별
-						for(String item : items) {
-							String[] value = item.split("\\^");
+						// 우선 소제목으로 데이터 셋을 가져온다
+						HashMap<String, List<String>> map = hashedMap.get(value[0]);
+						
+						// 소제목에 일치맵별, 문장들로 루프 수행
+						if(value == null || value.length == 1)
+							continue;
+						
+						String[] sentences = value[1].split("\\|");
+						
+						for(String sentence : sentences) {
+							sentenceCnt++;
+							// 문장별 이력서 리스트를 뽑는다.
+							List<String> resList = map.get(sentence);
+								
+							// 문장별 이력서를 루프 돌린다.
+							for(String res : resList) {
+								if(res.equals(temp[0]) || res.trim().length() == 0)
+									continue;
+								
+								int cnt = 1;
+								// 여기에 나온 값을 기반으로 각각의 유사 데이터 셋을 만들어야 한다.
+								if(resCnt.containsKey(res)) {
+									cnt += resCnt.get(res);
+								}
+								
+								resCnt.put(res, cnt);
+							}
+						}	// loop sentence
+					} // item
+					
+					
+					if(resCnt.size() > 0) {
+						//System.out.println("original : " + temp[0]);
+						
+						for(String res : resCnt.keySet()) {
+							//System.out.println("target : " + res + ", 유사율 : " + String.format("%.2f", (double)resCnt.get(res)/(double)sentenceCnt) + "%");
 							
-							
+							csvList.add(temp[0] + "," + res + "," + String.format("%.2f", (double)resCnt.get(res)/(double)sentenceCnt));							
 						}
-						
-						// 
-						
+						//System.out.println("*************************************************************");						
 					}
 				}
 
@@ -192,7 +231,7 @@ public class SherlockExecutor {
 		
 		
 		// 최종적으로 원본문장 개수 -> 유사 이력서 리스트의 카운트를 비교하여 제일 유사한 이력서를 sort한다		
-
+		SHRELOCK_MODULE.makeCSV(csvList);
 	}
 	
 	
