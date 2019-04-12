@@ -1,7 +1,11 @@
 package com.saramin.sai.module;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
@@ -12,7 +16,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import com.saramin.sai.util.CommonUtil;
+import com.saramin.sai.util.Logger;
 import com.saramin.sai.vo.ConfigVO;
+import com.saramin.sai.vo.HashedItdcVO;
 
 import ai.sai.sinabro.api.DanbiAPI;
 
@@ -20,14 +26,119 @@ public class SherlockModule {
 	private ConfigVO CONFIG;
 	private CommonUtil COMMON;
 	private DanbiAPI DANBI;
+	private Logger LOGGER;
+	
 	final String NEWLINE = System.getProperty("line.separator");
 	
 	public SherlockModule(ConfigVO CONFIG) {
 		this.CONFIG = CONFIG;
 		DANBI = new DanbiAPI(CONFIG.getDataPath());
 		COMMON = new CommonUtil();
+		
+		LOGGER = new Logger(CONFIG.isDebug(), "SHERLOCK", CONFIG.getLogPath());
 	}
 
+	
+	/**
+	 * VO값을 변환한다
+	 * 
+	 * @param ori
+	 * @return
+	 */
+	public HashedItdcVO changeVO(HashedItdcVO ori, HashMap<String, String> dicMap) {
+		HashedItdcVO vo = new HashedItdcVO ();
+		
+		// pk를 생성 (mem_idx + seq) => 해시화
+		try {
+			vo.setPk(COMMON.toSha(ori.getMemIdx() + "_" + ori.getSeq()).substring(0, 10));
+			vo.setMemIdx(ori.getMemIdx());
+			
+			List<String> tit = DANBI.extractNoun(ori.getTitle());
+			StringBuffer sb = new StringBuffer();
+			for(String token : tit) {
+				if(sb.toString().length() > 0)
+					sb.append(" ");
+				sb.append(token);
+			}
+			
+			vo.setTitle(sb.toString());		
+			vo.setClssTitle(setClssTitle(sb.toString(), dicMap));
+			vo.setContents(ori.getContents());
+			vo.setLength(ori.getLength());
+			
+			// hashed
+			String[] contents = ori.getContents().replaceAll("\n", ".").split("\\.");
+			StringBuffer contentSB = new StringBuffer();
+			
+			for(String sentence : contents) {
+				sb = new StringBuffer();
+				List<String> tokens = DANBI.extractNoun(sentence);
+				
+				for(String token : tokens) {
+					if(sb.length() > 0)
+						sb.append(" ");
+					
+					sb.append(token);
+				}
+				
+				if(sb.length() > 0) {
+					if(contentSB.length() > 0)
+						contentSB.append(",");
+					contentSB.append(COMMON.toSha(sb.toString()).substring(0, 10));
+				}
+			}
+			
+			// 제목도 본문에 포함시킨다.
+			if(vo.getTitle().length() > 0) {				
+				vo.setHashed(COMMON.toSha(vo.getTitle()).substring(0, 10) + "," + contentSB.toString());
+			} else {
+				vo.setHashed(contentSB.toString());
+			}
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+		}
+		
+		return vo;
+	}
+	
+	
+	/**
+	 * 소제목을 읽은 후, 유사값으로 변환
+	 * 
+	 * @param title
+	 * @return
+	 */
+	public String setClssTitle(String title, HashMap<String, String> dicMap) {
+		List<String> tokens = DANBI.extractNoun(title);
+		String rtnTitle = "etc";
+		
+		HashMap<String, Integer> cntMap = new HashMap<String, Integer> ();
+		
+		if(tokens != null && tokens.size() > 0) {
+			for(String token : tokens) {
+				if(dicMap.containsKey(token)) {
+					int cnt = 1;
+					if(cntMap.containsKey(dicMap.get(token))) {
+						cnt += cntMap.get(dicMap.get(token));
+					}
+					cntMap.put(dicMap.get(token), cnt);
+				}
+			}
+		}
+		
+		if(cntMap.size() > 0) {
+			int max = 0;
+			
+			for(String token : cntMap.keySet()) {
+				if(cntMap.get(token) > max) {
+					max = cntMap.get(token);
+					rtnTitle = token; 
+				}					
+			}
+		} 
+		
+		return rtnTitle;		
+	}
 	
 	
 	/**
@@ -144,6 +255,50 @@ public class SherlockModule {
 				bw.write(line + NEWLINE);
 			}
 			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();
+			return false;
+		}
+		
+		return true;
+	}
+	
+	
+	/**
+	 * 자기소개서를 변형한 데이터를 FGF로 다시 내린다
+	 * 
+	 * @param resultList
+	 * @param _name
+	 */
+	public boolean makePreFGF(List<HashedItdcVO> resultList, String _name) {
+		int endIdx = _name.length();
+		BufferedWriter bw;
+		
+		if(_name.lastIndexOf(".") > -1)
+			endIdx = _name.lastIndexOf(".");
+		
+		String name = _name.substring(0, endIdx);
+		
+		try {	
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(
+						CONFIG.getDataPath() + "/pre-data/galaxy/sherlock/hashed-itdc/daily/" + name + ".fgf", false),	// true to append 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			StringBuffer sb = new StringBuffer();
+			for(HashedItdcVO vo : resultList) {
+				sb.append("<__pk__>" + vo.getPk() + NEWLINE);
+				sb.append("<__mem_idx__>" + vo.getMemIdx() + NEWLINE);
+				sb.append("<__title__>" + vo.getTitle() + NEWLINE);
+				sb.append("<__clss_title__>" + vo.getClssTitle() + NEWLINE);
+				sb.append("<__contents__>" + vo.getContents() + NEWLINE);
+				sb.append("<__length__>" + vo.getLength() + NEWLINE);
+				sb.append("<__hashed__>" + vo.getHashed() + NEWLINE);				
+			}
+			
+			bw.write(sb.toString());
 			bw.close();
 		} catch(Exception e){
 			e.printStackTrace();
@@ -335,4 +490,44 @@ public class SherlockModule {
 		
 		return "";
 	}
+	
+	
+	/**
+	 * 제목사전을 읽어서 맵에 세팅
+	 * 
+	 * @return
+	 */
+	public HashMap<String, String> readTitDictionary() {
+		HashMap<String, String> titDicMap = new HashMap<String, String> ();
+		BufferedReader br = null;
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/dictionary/title.dic"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				String[] temp = line.split("\\|");
+				String[] words = temp[1].split(",");
+				
+				for(String word : words) {
+					titDicMap.put(word, temp[0]);
+				}
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("readTitDictionary : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		return titDicMap;
+	}	
 }

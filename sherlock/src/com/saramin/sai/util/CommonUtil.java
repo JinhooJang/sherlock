@@ -289,24 +289,36 @@ public class CommonUtil {
 	 * @param list
 	 * @return
 	 */
-	public HashMap<String, HashMap<String, String>> parseDocsForSherlock(List<String> list) {
+	public HashMap<String, HashMap<String, String>> parseDocsForSherlock(List<String> list, 
+				HashMap<String, String> MEM_RES_MAP) {
+		
 		HashMap<String, HashMap<String, String>> rtnMap 
 							= new HashMap<String, HashMap<String, String>>();
 		
 		// 자기소개서는 res_idx로 시작하여, seq로 종료
 		String resIdx = "";
+		String pk = "";
+		
 		String title = "";
 		StringBuffer contents = new StringBuffer();
 		HashMap<String, String> map = null;
-		boolean flag = false;		
+		
+		boolean flag = false;
+		
 		
 		for(String line : list) {
 			// 시작점, 자기소개서 번호
 			if(line.indexOf("<__res_idx__>") > -1) {
 				resIdx = line.substring("<__res_idx__>".length(), line.length()).trim();
 				
+				if(MEM_RES_MAP.containsKey(resIdx)) {
+					pk = MEM_RES_MAP.get(resIdx);
+				} else {
+					pk = "";
+				}
+					
 				contents = new StringBuffer ();
-				flag = false;				
+				flag = false;								
 			}
 			// 제목
 			else if(line.indexOf("<__title__>") > -1) {
@@ -320,12 +332,16 @@ public class CommonUtil {
 			// 시퀀스, 마지막 라인
 			else if(line.indexOf("<__seq__>") > -1) {
 				map = new HashMap<String, String> ();
-				if(rtnMap.containsKey(resIdx)) {
+				
+				if(pk.length() > 0 && rtnMap.containsKey(pk)) {
 					map = rtnMap.get(resIdx); 
 				}
 				
 				map.put(title, contents.toString());
-				rtnMap.put(resIdx, map);				
+				
+				if(pk.length() > 0) {
+					rtnMap.put(pk, map);
+				}
 			}
 			else if(flag && line.indexOf("<__") == -1){
 				contents.append(line);

@@ -12,21 +12,25 @@ import java.util.List;
 import com.saramin.sai.module.SherlockModule;
 import com.saramin.sai.util.CommonUtil;
 import com.saramin.sai.util.Logger;
+import com.saramin.sai.vo.ApplyVO;
 import com.saramin.sai.vo.ConfigVO;
+import com.saramin.sai.vo.HashedItdcVO;
 
 
 /**
  * 자기소개서 표절 시스템
  * 
  * @author jinhoo.jang
- * @since 2018.12.24
+ * @since 2019.03.28
  * @team AI Part
  */
 public class SherlockExecutor {
 	private CommonUtil COMMON;
-	private SherlockModule SHRELOCK_MODULE;
+	private SherlockModule SHERLOCK_MODULE;
 	private ConfigVO CONFIG;
 	private Logger LOGGER;
+	
+	private HashMap<String, HashMap<String, List<String>>> MEM_TIT_HASHED_LIST;
 	
 	final String NEWLINE = System.getProperty("line.separator");
 	
@@ -49,8 +53,9 @@ public class SherlockExecutor {
 			
 			
 			LOGGER = new Logger(CONFIG.isDebug(), "SHERLOCK", CONFIG.getLogPath());
-			SHRELOCK_MODULE = new SherlockModule(CONFIG);
+			SHERLOCK_MODULE = new SherlockModule(CONFIG);
 			
+			MEM_TIT_HASHED_LIST = new HashMap<String, HashMap<String, List<String>>> ();
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.out.println("[ERROR] parsing error");
@@ -60,46 +65,91 @@ public class SherlockExecutor {
 	
 	
 	/**
-	 * PreData를 위한 스크립터
+	 * 자기소개서 원문을 읽어서, 해시화 시키고 데일리 폴더에 넣는다
+	 * 데일리 폴더의 파일을 최종적으로 병합
 	 */
-	public void pre(boolean isBulk) {
+	public void pre() {
+		// 먼저 apply 데이터를 읽은 후, res_idx와 mem_idx를 세팅한다
+		System.out.println("BEGIN: get mem res data");
+		HashMap<String, String> RES_MEM_MAP = getApplyKeyValue(2,3);
+		System.out.println("END: get mem res data");
+		
+		// 제목 사전을 읽는다
+		LOGGER.info("BEGIN: read title dictionary");
+		HashMap<String, String> titDic = SHERLOCK_MODULE.readTitDictionary();
+		LOGGER.info("END: " + titDic.size() + " read title dictionary");
+		
+		// 자기소개서를 해시화 시킨다
+		System.out.println("BEGIN: make hashed");
 		List<String> list = null;
 		HashMap<String, HashMap<String, String>> result = null;
 		
 		BufferedReader br = null;
 		File[] raws = null;
-		// 자기소개서의 경로
-		String mode = "raw-data/intro-docs/inc/";
+		HashedItdcVO vo = null;
+				
+		raws = new File(CONFIG.getDataPath() + "raw-data/introdoc/inc/").listFiles();
+		boolean flag = false;
+		StringBuffer contents = new StringBuffer();
 		
-		if(isBulk) {
-			mode = "raw-data/intro-docs/bulk/";
-		}
-		System.out.println(mode);
-		raws = new File(CONFIG.getDataPath() + mode).listFiles();
+		List<HashedItdcVO> resultList = new ArrayList<HashedItdcVO> ();
 		
 		for(File doc : raws) {
+			resultList = new ArrayList<HashedItdcVO> ();
+			
 			try {
 				list = new ArrayList<String>();
 				br = new BufferedReader(
 						new InputStreamReader(
 								new FileInputStream(doc.getAbsolutePath()), "UTF8"));
 				String line = null;
+				System.out.println("read : " + doc.getName());
 				
 				while ((line = br.readLine()) != null) {
-					if(line.trim().length() > 0)
-						list.add(line);
+					if(line.trim().length() > 0) {
+						// res_idx가 있을 경우, 먼저 PK값을 세팅
+						if(line.indexOf("<__res_idx__>") > -1) {
+							contents = new StringBuffer();
+							flag = false;
+							
+							String res = line.substring("<__res_idx__>".length(), line.length());
+							System.out.println(res);
+							if(RES_MEM_MAP.containsKey(res)) {
+								System.out.println(res);
+								vo = new HashedItdcVO ();
+								flag = true;
+								
+								vo.setMemIdx(RES_MEM_MAP.get(res));
+							}
+						} 
+						// 제목일 경우
+						else if(line.indexOf("<__title__>") > -1 && flag) {
+							vo.setTitle(line.substring("<__title__>".length(), line.length()).trim());							
+						}
+						// 컨텐츠내용
+						else if(line.indexOf("<__contents__>") > -1) {
+							contents.append(line.substring("<__contents__>".length(), line.length()).trim());			
+						}
+						// 시퀀스, 마지막 라인 값을 세팅
+						else if(line.indexOf("<__seq__>") > -1 && flag) {
+							vo.setSeq(line.substring("<__seq__>".length(), line.length()).trim());
+							vo.setContents(contents.toString());
+							vo.setLength(contents.length());
+							
+							// vo값을 재조정
+							resultList.add(SHERLOCK_MODULE.changeVO(vo, titDic));					
+						}
+						else if(flag && line.indexOf("<__") == -1){
+							contents.append(line);
+						}
+					}
+					
 				}
-
+				
 				br.close();
 				
-				// 텍스트를 자소서 구조로 map에 저장
-				result = COMMON.parseDocsForSherlock(list);
-				
-				// 전체 자소서를 해시화 한 후, list로 저장 
-				list = SHRELOCK_MODULE.changeHashed(result);
-				
-				// csv 파일로 생성한다
-				chkError(SHRELOCK_MODULE.makePreCSV(list, doc.getName()), "makePreCSV");			
+				// FGF 파일로 생성
+				chkError(SHERLOCK_MODULE.makePreFGF(resultList, doc.getName()), "makePreFGF");		
 				LOGGER.info(doc.getName() + " made pre-data...");
 				
 			} catch (Exception e) {
@@ -113,125 +163,194 @@ public class SherlockExecutor {
 				}
 			}
 		}
+		
+		System.out.println("END: make hashed");
 	}
 	
 	
 	/**
 	 * 연산을 수행하는 스크립터
 	 */
-	public void bulk() {
+	public void execute() {
+		// 먼저 apply 데이터를 읽은 후, res_idx와 mem_idx를 세팅한다
+		System.out.println("BEGIN: get mem res data");
+		HashMap<String, HashMap<String, ApplyVO>> MEM_APPLY_MAP = getApplyDataByMem();
+		System.out.println("END: get mem res data");
+		
+		System.out.println("BEGIN: set dictionary");
+		//HashMap<String, String> titMap = setTitleDic();
+		System.out.println("END: set dictionary");
 		
 		// 타이틀, 해시, 이력서 번호의 맵으로 세팅한다
 		long startTime = System.currentTimeMillis();
-		HashMap<String, HashMap<String, List<String>>> hashedMap = getHashedData();
-		long endTime = System.currentTimeMillis();
-		LOGGER.info("getHashedData elapsed " + (endTime-startTime) + "(ms)");
+		System.out.println("BEGIN: TIT_HASHED_MEM_LIST");
+		HashMap<String, HashMap<String, List<String>>> TIT_HASHED_MEM_LIST = getHashedData();
+		System.out.println("END: " + TIT_HASHED_MEM_LIST.size() + " TIT_HASHED_MEM_LIST");
 		
-		// debug
-		/*for(String title : hashedMap.keySet()) {
-			HashMap<String, List<String>> map = hashedMap.get(title);
-			
-			for(String sentence : map.keySet()) {
-				if(map.get(sentence).size() > 2) {
-					System.out.println("title : " + title);
-					System.out.println(sentence + " " + map.get(sentence));
-					
-					try {
-						Thread.sleep(50);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-			}
-		}*/
+		HashMap<String, List<String>> resultMap = new HashMap<String, List<String>> ();
+		int cnt = 0;
 		
-		// 신규 문서를 읽은 후, 형태소 분석 -> 해시 수행 후 유사 이력서 번호 리스트를 가져온다
-		BufferedReader br = null;
-		File[] docs = new File(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/plagiarize/").listFiles();
-		List<String> csvList = new ArrayList<String> ();
-		
-		try {
-			for(File doc : docs) {
-				br = new BufferedReader(
-						new InputStreamReader(
-								new FileInputStream(doc.getAbsolutePath()), "UTF8"));
-				String line = null;
-				int sentenceCnt = 0;
+		for(String memIdx : MEM_TIT_HASHED_LIST.keySet()) {
+			cnt = 0;
+			resultMap = new HashMap<String, List<String>> ();
+			List<String> resultList = new ArrayList<String> ();
+			HashMap<String, List<String>> dailyMap = MEM_TIT_HASHED_LIST.get(memIdx);
+						
+			for(String title : dailyMap.keySet()) {
+				System.out.println("title : " + title);				
+				HashMap<String, List<String>> targetHashedMap = TIT_HASHED_MEM_LIST.get(title);
+				System.out.println("target=>" + targetHashedMap);
 				
-				while ((line = br.readLine()) != null) {
-					sentenceCnt = 0;
+				List<String> hashedList = dailyMap.get(title);
+				System.out.println("hashedList=>" + hashedList);
+				
+				for(String hashed : hashedList) {
+					cnt++;
 					
-					if(line.trim().length() == 0) continue;
-					
-					String[] temp = line.split(",");
-					String[] items = temp[1].split("\\#");
-					HashMap<String, Integer> resCnt = new HashMap<String, Integer> ();
-					
-					// 항목별
-					for(String item : items) {
-						String[] value = item.split("\\^");
-						// temp[0] 이력서번호, value[0] 소제목, value[1] 문장들
-						
-						// 우선 소제목으로 데이터 셋을 가져온다
-						HashMap<String, List<String>> map = hashedMap.get(value[0]);
-						
-						// 소제목에 일치맵별, 문장들로 루프 수행
-						if(value == null || value.length == 1)
+					for(String mem : targetHashedMap.get(hashed)) {
+						if(mem.equals(memIdx)) {
 							continue;
-						
-						String[] sentences = value[1].split("\\|");
-						
-						for(String sentence : sentences) {
-							sentenceCnt++;
-							// 문장별 이력서 리스트를 뽑는다.
-							List<String> resList = map.get(sentence);
-								
-							// 문장별 이력서를 루프 돌린다.
-							for(String res : resList) {
-								if(res.equals(temp[0]) || res.trim().length() == 0)
-									continue;
-								
-								int cnt = 1;
-								// 여기에 나온 값을 기반으로 각각의 유사 데이터 셋을 만들어야 한다.
-								if(resCnt.containsKey(res)) {
-									cnt += resCnt.get(res);
-								}
-								
-								resCnt.put(res, cnt);
-							}
-						}	// loop sentence
-					} // item
-					
-					
-					if(resCnt.size() > 0) {
-						//System.out.println("original : " + temp[0]);
-						
-						for(String res : resCnt.keySet()) {
-							//System.out.println("target : " + res + ", 유사율 : " + String.format("%.2f", (double)resCnt.get(res)/(double)sentenceCnt) + "%");
-							
-							csvList.add(temp[0] + "," + res + "," + String.format("%.2f", (double)resCnt.get(res)/(double)sentenceCnt));							
 						}
-						//System.out.println("*************************************************************");						
+						resultList.add(mem);
 					}
 				}
-
-				br.close();
-				LOGGER.info(doc.getName() + " get hashed data...");
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error("getHashedData() : " + e.getMessage());
-			hashedMap = null;
-		} finally {
-			if (br != null) { 
-				try { br.close();} 
-				catch (IOException e1) {e1.printStackTrace();}
+			
+			// 최종 결과
+			HashMap<String, Integer> cntMap = new HashMap<String, Integer> ();
+			for(String mem : resultList) {
+				int score = 1;
+				if(cntMap.containsKey(mem)) {
+					score += cntMap.get(mem);
+				}
+				cntMap.put(mem, score);
+			}
+			
+			if(MEM_APPLY_MAP.containsKey(memIdx)) {
+				// 표절 리스트
+				for(String targetMem : cntMap.keySet()) {
+					HashMap<String, ApplyVO> recApplyMap = MEM_APPLY_MAP.get(memIdx);
+					for(String rec: recApplyMap.keySet()) {
+						ApplyVO applyVO = recApplyMap.get(rec);
+						
+						System.out.println(rec + "," + applyVO.getResIdx() + "," + targetMem + "," + String.format("%.2f", (double)cntMap.get(targetMem)/cnt));
+					}						
+				}
 			}
 		}
 		
 		
-		// 최종적으로 원본문장 개수 -> 유사 이력서 리스트의 카운트를 비교하여 제일 유사한 이력서를 sort한다		
-		SHRELOCK_MODULE.makeCSV(csvList);
+		long endTime = System.currentTimeMillis();
+		LOGGER.info("getHashedData elapsed " + (endTime-startTime) + "(ms)");
+		
+		
+	}
+	
+	
+	/**
+	 * Mem_idx와 res_idx를 매핑한다
+	 * 
+	 * @return
+	 */
+	public HashMap<String, String> getApplyKeyValue(int key, int value) {
+		HashMap<String, String> rtnMap = new HashMap<String, String> (); 
+		
+		BufferedReader br = null;
+		File[] applys = null;		
+		applys = new File(CONFIG.getDataPath() + "raw-data/apply/inc/").listFiles();
+		
+		int cnt = 0;
+		
+		for(File apply : applys) {
+			try {
+				br = new BufferedReader(
+						new InputStreamReader(
+								new FileInputStream(apply.getAbsolutePath()), "UTF8"));
+				
+				String line = null;				
+				while ((line = br.readLine()) != null) {
+					cnt++;
+					
+					if(line.trim().length() > 0 && cnt > 1) {
+						String[] temp = line.split(",");
+						rtnMap.put(temp[2], temp[3]);
+					}
+				}
+
+				br.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				LOGGER.error("getMemResData : " + e.getMessage());
+				System.exit(1);
+			} finally {
+				if (br != null) { 
+					try { br.close();} 
+					catch (IOException e1) {e1.printStackTrace();}
+				}
+			}
+		}
+		
+		return rtnMap;
+	}
+	
+	
+	/**
+	 * Mem_idx와 res_idx를 매핑한다
+	 * 
+	 * @return
+	 */
+	public HashMap<String, HashMap<String, ApplyVO>> getApplyDataByMem() {
+		HashMap<String, HashMap<String, ApplyVO>> rtnMap 
+						= new HashMap<String, HashMap<String, ApplyVO>> (); 
+		
+		BufferedReader br = null;
+		File[] applys = null;
+		
+		HashMap<String, ApplyVO> recApplyVO = null;
+		ApplyVO vo = null;
+		int cnt = 0;
+		
+		applys = new File(CONFIG.getDataPath() + "raw-data/apply/inc/").listFiles();
+		
+		for(File apply : applys) {
+			try {
+				br = new BufferedReader(
+						new InputStreamReader(
+								new FileInputStream(apply.getAbsolutePath()), "UTF8"));
+				
+				String line = null;				
+				while ((line = br.readLine()) != null) {
+					cnt++;
+					recApplyVO = new HashMap<String, ApplyVO> ();
+					
+					if(line.trim().length() > 0 && cnt > 1) {
+						String[] value = line.split(",");
+						vo = new ApplyVO();
+						
+						vo.setApplyIdx(value[0]);
+						vo.setRecIdx(value[1]);
+						vo.setResIdx(value[2]);
+						vo.setMemIdx(value[3]);
+						
+						recApplyVO.put(value[1], vo);
+						rtnMap.put(value[3], recApplyVO);
+					}
+				}
+
+				br.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				LOGGER.error("getMemResData : " + e.getMessage());
+				System.exit(1);
+			} finally {
+				if (br != null) { 
+					try { br.close();} 
+					catch (IOException e1) {e1.printStackTrace();}
+				}
+			}
+		}
+		
+		return rtnMap;
 	}
 	
 	
@@ -243,54 +362,123 @@ public class SherlockExecutor {
 	public HashMap<String, HashMap<String, List<String>>> getHashedData() {
 		
 		BufferedReader br = null;
-		HashMap<String, HashMap<String, List<String>>> hashedMap = null;
-		File[] docs = new File(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/plagiarize/").listFiles();
+		HashMap<String, HashMap<String, List<String>>> TIT_HASHED_MEM_LIST = 
+				new HashMap<String, HashMap<String, List<String>>> ();
 		
-		// 이력서-제목별 유사 이력서 찾기
-		HashMap<String, HashMap<String, List<String>>> resTitle 
-					= new HashMap<String, HashMap<String, List<String>>> (); 
+		
+		List<String> filePathList = new ArrayList<String> ();
+		// all 데이터
+		File[] docs = new File(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/hashed-itdc/all/").listFiles();		
+		for(File doc : docs) {
+			filePathList.add(doc.getAbsolutePath());
+		}
+		// daily7 데이터
+		docs = new File(CONFIG.getDataPath() + "pre-data/galaxy/sherlock/hashed-itdc/daily/").listFiles();
+		for(File doc : docs) {
+			filePathList.add(doc.getAbsolutePath());
+		}
+		
+		boolean isDaily = false;
 		
 		try {
-			hashedMap = new HashMap<String, HashMap<String, List<String>>> ();
-			
-			for(File doc : docs) {
+			for(String filePath : filePathList) {
+				isDaily = false;
+				if(filePath.indexOf("daily") > -1)
+					isDaily = true;
+				
+				
 				br = new BufferedReader(
 						new InputStreamReader(
-								new FileInputStream(doc.getAbsolutePath()), "UTF8"));
+								new FileInputStream(filePath), "UTF8"));
 				
 				String line = null;
+				String pk = "";
+				StringBuffer contents = new StringBuffer();
+				HashedItdcVO vo = new HashedItdcVO();
 				
 				while ((line = br.readLine()) != null) {
+					
+					// pk가 처음, hashed가 마지막
 					if(line.trim().length() > 0) {
-						SHRELOCK_MODULE.parseHashData(line, hashedMap);
-						
-						// sherlock module
-						/*for(String title : hashedMap.keySet()) {
-							// 제목이 유사한 맵을 찾는다
-							HashMap<String, List<String>> map = hashedMap.get(title);
+						if(line.indexOf("<__pk__>") > -1) {
+							vo.setPk(line.substring("<__pk__>".length(), line.length()));
+						} else if(line.indexOf("<__mem_idx__>") > -1) {
+							vo.setMemIdx(line.substring("<__mem_idx__>".length(), line.length()));
+						} else if(line.indexOf("<__title__>") > -1) {
+							//vo.setTitle(line.substring("<__title__>".length(), line.length()));
+							vo.setTitle("etc");
+						} else if(line.indexOf("<__contents__>") > -1) {
+							vo.setContents(line.substring("<__contents__>".length(), line.length()));
+						} else if(line.indexOf("<__length__>") > -1) {
+							vo.setLength(Integer.parseInt(line.substring("<__length__>".length(), line.length())));
+						} 
+						// 마지막
+						else if(line.indexOf("<__hashed__>") > -1) {
+							vo.setHashed(line.substring("<__hashed__>".length(), line.length()));
 							
-							// 맵별, 문장들로 루프 수행 
-							for(String sentence : map.keySet()) {
-								if(map.get(sentence).size() > 1) {
-									System.out.println("title : " + title);
-									System.out.println(sentence + " " + map.get(sentence));
-									Thread.sleep(100);
-									
-									
-								}
+							// 해시값 처리
+							// 제목이 있을 경우
+							HashMap<String, List<String>> HASHED_MEM_LIST = null;
+							if(TIT_HASHED_MEM_LIST.containsKey(vo.getTitle())) {
+								HASHED_MEM_LIST = TIT_HASHED_MEM_LIST.get(vo.getTitle());
+							} else {
+								HASHED_MEM_LIST = new HashMap<String, List<String>> ();								
 							}
-														
-						}				*/		
+							
+							String[] hasheds = vo.getHashed().split(",");
+							
+							if(hasheds != null && hasheds.length > 0) {
+								List<String> list = null;
+								
+								for(String hashed : hasheds) {
+									// 
+									if(HASHED_MEM_LIST.containsKey(hashed)) {
+										list = HASHED_MEM_LIST.get(hashed);
+									} else {
+										list = new ArrayList<String> ();
+									}
+									
+									list.add(vo.getMemIdx());
+									HASHED_MEM_LIST.put(hashed, list);									
+								}
+								
+								TIT_HASHED_MEM_LIST.put(vo.getTitle(), HASHED_MEM_LIST);
+							}
+							
+							// daily일 경우 추가 세팅
+							if(isDaily) {
+								HashMap<String, List<String>> TIT_HASHED_LIST = null;							
+								if(MEM_TIT_HASHED_LIST.containsKey(vo.getMemIdx())) {
+									TIT_HASHED_LIST = MEM_TIT_HASHED_LIST.get(vo.getMemIdx());
+								} else {
+									TIT_HASHED_LIST = new HashMap<String, List<String>> ();
+								}
+								
+								List<String> dailyHashedList = null;
+								
+								if(TIT_HASHED_LIST.containsKey(vo.getTitle())) {
+									dailyHashedList = TIT_HASHED_LIST.get(vo.getTitle());
+								} else {
+									dailyHashedList = new ArrayList<String> ();
+								}
+								
+								for(String hashed : hasheds) {
+									dailyHashedList.add(hashed);
+								}
+								
+								TIT_HASHED_LIST.put(vo.getTitle(), dailyHashedList);
+								MEM_TIT_HASHED_LIST.put(vo.getMemIdx(), TIT_HASHED_LIST);
+							}
+						}
 					}
 				}
 
 				br.close();
-				LOGGER.info(doc.getName() + " get hashed data...");
+				LOGGER.info(filePath + " get hashed data...");				
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error("getHashedData() : " + e.getMessage());
-			hashedMap = null;
+			LOGGER.error("getHashedData() : " + e.getMessage());			
 		} finally {
 			if (br != null) { 
 				try { br.close();} 
@@ -298,70 +486,13 @@ public class SherlockExecutor {
 			}
 		}
 		
-		return hashedMap;
-	}
-	
-		
-	/**
-	 * 분석해야될 자기소개서를 해시값으로 우선 변경한다
-	 * 
-	 * @param isBulk
-	 * @return
-	 */
-	public boolean chngHashAllDocs(boolean isBulk) {
-		// 자기소개서의 경로
-		File[] docs = null;
-		BufferedReader br = null;
-		List<String> list = null;
-		HashMap<String, HashMap<String, String>> result = null;
-		
-		if(isBulk) {
-			docs = new File(CONFIG.getDataPath() + "raw-data/intro-doc/bulk/").listFiles();
-		} else {			
-			docs = new File(CONFIG.getDataPath() + "raw-data/intro-doc/inc/").listFiles();
-		}		
-		
-		try {
-			// 한 파일씩 분석한다. 한 파일은 약 10만개의 자기소개서 존재
-			// RES-IDX, TITLE, HASH 형태
-			// (String)Hash -> (String)title, List<res_idx>
-			for(File doc : docs) {
-				list = new ArrayList<String>();
-				
-				br = new BufferedReader(
-						new InputStreamReader(
-								new FileInputStream(doc.getAbsolutePath()), "UTF8"));
-				String line = null;
-				
-				while ((line = br.readLine()) != null) {
-					if(line.trim().length() > 0) {
-						list.add(line);
-					}
-				}
-
-				br.close();
-				
-				// 파일에 있는 자소서 구조를 map에 저장한다
-				result = COMMON.parseDocsForSherlock(list);
-				
-				// 자소서 구조를 해시화
-				list = SHRELOCK_MODULE.changeHashed(result);
-				LOGGER.info(doc.getName() + " made pre-data...");
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error("chngHashAllDocs() : " + e.getMessage());
-			return false;
-		} finally {
-			if (br != null) { 
-				try { br.close();} 
-				catch (IOException e1) {e1.printStackTrace();}
-			}
+		for(String tit : TIT_HASHED_MEM_LIST.keySet()) {
+			System.out.println(tit + "==>" + TIT_HASHED_MEM_LIST.get(tit));
 		}
 		
-		return true;		
+		return TIT_HASHED_MEM_LIST;
 	}
-	
+		
 	
 	/**
 	 * 에러를 체크하여, 에러 발생 시 종료
