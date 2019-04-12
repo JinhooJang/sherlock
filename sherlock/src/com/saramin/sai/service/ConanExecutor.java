@@ -72,7 +72,7 @@ public class ConanExecutor {
 	public void pre() {
 		
 		LOGGER.info("BEGIN: start conan executor");
-		String name = "전기_신입";
+		String name = "토목_신입";
 		HashMap<String, IntroDocVO> EXCEL_MAP = CONAN_MODULE.readResultExcel(name);
 		CONAN_MODULE.setContentExcel(name, EXCEL_MAP);
 		CONAN_MODULE.makeFGF(EXCEL_MAP, name);
