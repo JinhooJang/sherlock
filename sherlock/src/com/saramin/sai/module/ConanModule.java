@@ -137,7 +137,7 @@ public class ConanModule {
                     	
                     	vo = new IntroDocVO();
                     	
-                    	vo.setQues("한국남부발전에 지원동기, 노력했던 경험");
+                    	vo.setQues("지원동기, 노력했던 경험");
                     	vo.setQuesClss("1");
                     	vo.setSequence("1");
                         vo.setTraining(true);
@@ -480,6 +480,7 @@ public class ConanModule {
 	
 	/**
 	 * JOB별 직업 사전 생성(label = 1, ques_clss = 0)
+	 * 
 	 * @return
 	 */
 	public boolean makeJobDic() {
@@ -492,88 +493,95 @@ public class ConanModule {
 		String ques = "";
 		String label = "";
 		
-		try {
-			br = new BufferedReader(
-					new InputStreamReader(
-					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/경력.fgf"), "UTF8"));
+		File[] fgfs = new File(CONFIG.getDataPath() + "raw-data/introdoc/nambu/").listFiles();
+		
+		for(File fgf : fgfs) {
+			if(fgf.getName().indexOf("경력") > -1)
+				continue;
 			
-			String line = null;				
-			while ((line = br.readLine()) != null) {
-				// ex: 사무담당원
-				if(line.indexOf("<__job__>") > -1) {
-					job = line.substring("<__job__>".length(), line.length());
-				}
-				// 직업내용
-				else if(line.indexOf("<__content__>") > -1) {
-					cont = new StringBuffer();
-					cont.append(line.substring("<__content__>".length(), line.length()));
-				}
-				// 질문내용(ques_clss -> 0)
-				else if(line.indexOf("<__ques_clss__>") > -1) {
-					ques = line.substring("<__ques_clss__>".length(), line.length());
-				}
-				// label
-				else if(line.indexOf("<__label__>") > -1) {
-					label = line.substring("<__label__>".length(), line.length());
+			try {
+				br = new BufferedReader(
+							new InputStreamReader(
+							new FileInputStream(fgf.getAbsolutePath()), "UTF8"));
 					
-					// 데이터를 생성
-					if(ques.equals("0") && label.equals("1")) {
+				String line = null;				
+				while ((line = br.readLine()) != null) {
+					
+					// ex: 사무담당원
+					if(line.indexOf("<__job__>") > -1) {
+						job = line.substring("<__job__>".length(), line.length());
+					}
+					// 직업내용
+					else if(line.indexOf("<__content__>") > -1) {
+						cont = new StringBuffer();
+						cont.append(line.substring("<__content__>".length(), line.length()));
+					}
+					// 질문내용(ques_clss -> 0)
+					else if(line.indexOf("<__ques_clss__>") > -1) {
+						ques = line.substring("<__ques_clss__>".length(), line.length());
+					}
+					// label
+					else if(line.indexOf("<__label__>") > -1) {
+						label = line.substring("<__label__>".length(), line.length());
 						
-						// dicMap
-						//System.out.println(getNer(cont.toString(), "SCH"));
-						List<String> nounLst = DANBI.extractNoun(cont.toString());
-						for(String noun : nounLst) {
-							int cnt = 1;
-							if(dicMap.containsKey(noun)) {
-								cnt += dicMap.get(noun);
+						// 데이터를 생성
+						if(ques.equals("0") && label.equals("1")) {
+							
+							// dicMap
+							//System.out.println(getNer(cont.toString(), "SCH"));
+							List<String> nounLst = DANBI.extractNoun(cont.toString());
+							for(String noun : nounLst) {
+								int cnt = 1;
+								if(dicMap.containsKey(noun)) {
+									cnt += dicMap.get(noun);
+								}
+								dicMap.put(noun, cnt);
 							}
-							dicMap.put(noun, cnt);
 						}
 					}
+					// content의 중간값
+					else if(line.indexOf("<__") == -1) {
+						cont.append(line);
+					}
+				}				
+	
+				br.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+				LOGGER.error("makeJobDic : " + e.getMessage());
+				System.exit(1);
+			} finally {
+				if (br != null) { 
+					try { br.close();} 
+					catch (IOException e1) {e1.printStackTrace();}
 				}
-				// content의 중간값
-				else if(line.indexOf("<__") == -1) {
-					cont.append(line);
+			}
+		
+			// dicmap을 크기순으로 정렬
+			Map<String, Integer> result = dicMap.entrySet().stream()
+	                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+	                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+	                        (oldValue, newValue) -> oldValue, LinkedHashMap::new));
+			
+			BufferedWriter bw;
+			
+			try {	
+				bw = new BufferedWriter(
+						new OutputStreamWriter(
+						new FileOutputStream(
+							CONFIG.getDataPath() + "dictionary/nambu/" + job + ".dic", false),						 
+							StandardCharsets.UTF_8));	// set encoding utf-8
+				
+				for(String key : result.keySet()) {
+					if(result.get(key) > 1) 
+						bw.write(key + NEWLINE);				
 				}
+				
+				bw.close();
+			} catch(Exception e){
+				e.printStackTrace();			
 			}
-
-			br.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-			LOGGER.error("makeJobDic : " + e.getMessage());
-			System.exit(1);
-		} finally {
-			if (br != null) { 
-				try { br.close();} 
-				catch (IOException e1) {e1.printStackTrace();}
-			}
-		}
-		
-		// dicmap을 크기순으로 정렬
-		Map<String, Integer> result = dicMap.entrySet().stream()
-                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                        (oldValue, newValue) -> oldValue, LinkedHashMap::new));
-		
-		BufferedWriter bw;
-		int total = 0;
-		
-		try {	
-			bw = new BufferedWriter(
-					new OutputStreamWriter(
-					new FileOutputStream(
-						CONFIG.getDataPath() + "dictionary/nambu/" + job + ".dic", false),						 
-						StandardCharsets.UTF_8));	// set encoding utf-8
-			
-			for(String key : result.keySet()) {
-				if(result.get(key) > 1) 
-					bw.write(key + NEWLINE);				
-			}
-			
-			bw.close();
-		} catch(Exception e){
-			e.printStackTrace();			
-		}		
+		} // files
 		
 		return true;
 	}
@@ -630,7 +638,7 @@ public class ConanModule {
 		try {
 			br = new BufferedReader(
 					new InputStreamReader(
-					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/경력.fgf"), "UTF8"));
+					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/" + _job + ".fgf"), "UTF8"));
 			
 			String line = null;				
 			while ((line = br.readLine()) != null) {
@@ -680,7 +688,7 @@ public class ConanModule {
 			br.close();
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error("makeJobDic : " + e.getMessage());
+			LOGGER.error("tf : " + e.getMessage());
 			System.exit(1);
 		} finally {
 			if (br != null) { 
@@ -763,7 +771,7 @@ public class ConanModule {
 		try {
 			br = new BufferedReader(
 					new InputStreamReader(
-					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/경력.fgf"), "UTF8"));
+					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/" + _job + ".fgf"), "UTF8"));
 			
 			String line = null;				
 			while ((line = br.readLine()) != null) {
@@ -904,7 +912,7 @@ public class ConanModule {
 			br.close();
 		} catch (Exception e) {
 			e.printStackTrace();
-			LOGGER.error("makeJobDic : " + e.getMessage());
+			LOGGER.error("readTermList : " + e.getMessage());
 			System.exit(1);
 		} finally {
 			if (br != null) { 

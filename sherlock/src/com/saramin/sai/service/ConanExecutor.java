@@ -94,7 +94,7 @@ public class ConanExecutor {
 		
 		LOGGER.info("BEGIN: calculate tf");
 		String[] quesClssArr = {"1","2","3","4"};
-		String[] jobArr = {"사무담당원"};
+		String[] jobArr = {"건축","기계","사무","전기","토목","화학"};
 		
 		// 직업(job) + 질문별(ques_clss, 총 4개) 별 tf 수행
 		// 직업별 tf csv(키워드, 카운트, 등장비율) 생성
