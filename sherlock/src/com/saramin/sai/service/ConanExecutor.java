@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 
 import com.saramin.sai.module.ConanModule;
-import com.saramin.sai.module.SherlockModule;
 import com.saramin.sai.util.CommonUtil;
 import com.saramin.sai.util.Logger;
 import com.saramin.sai.vo.ApplyVO;
@@ -72,109 +71,63 @@ public class ConanExecutor {
 	public void pre() {
 		
 		LOGGER.info("BEGIN: start conan executor");
+		
+		/*
+		LOGGER.info("BEGIN: EXCEL to FGF"); 
 		String name = "토목_신입";
 		HashMap<String, IntroDocVO> EXCEL_MAP = CONAN_MODULE.readResultExcel(name);
 		CONAN_MODULE.setContentExcel(name, EXCEL_MAP);
 		CONAN_MODULE.makeFGF(EXCEL_MAP, name);
-		LOGGER.info("END: start conan executor");
+		LOGGER.info("END: EXCEL to FGF");
+		*/
 		
+		LOGGER.info("BEGIN: make job dictionary");
+		// job 별 직업 사전 생성 (label = 1, ques_clss = 0)
+		// CONAN_MODULE.makeJobDic();
+		LOGGER.info("END: make job dictionary");
 		
-		// 먼저 apply 데이터를 읽은 후, res_idx와 mem_idx를 세팅한다
-		/*System.out.println("BEGIN: get mem res data");
-		HashMap<String, String> RES_MEM_MAP = getApplyKeyValue(2,3);
-		System.out.println("END: get mem res data");
+		LOGGER.info("BEGIN: verify with job dictionary");
+		// 직업사전으로 직무역량 검증, pass, fail
+		/*HashMap<String, String> TASK_MAP = CONAN_MODULE.readTaskDic(); 
+		CONAN_MODULE.verifyJob(TASK_MAP);*/
+		LOGGER.info("END: verify with job dictionary");
 		
-		// 제목 사전을 읽는다
-		LOGGER.info("BEGIN: read title dictionary");
-		HashMap<String, String> titDic = SHERLOCK_MODULE.readTitDictionary();
-		LOGGER.info("END: " + titDic.size() + " read title dictionary");
+		LOGGER.info("BEGIN: calculate tf");
+		String[] quesClssArr = {"1","2","3","4"};
+		String[] jobArr = {"사무담당원"};
 		
-		// 자기소개서를 해시화 시킨다
-		System.out.println("BEGIN: make hashed");
-		List<String> list = null;
-		HashMap<String, HashMap<String, String>> result = null;
-		
-		BufferedReader br = null;
-		File[] raws = null;
-		HashedItdcVO vo = null;
-				
-		raws = new File(CONFIG.getDataPath() + "raw-data/introdoc/inc/").listFiles();
-		boolean flag = false;
-		StringBuffer contents = new StringBuffer();
-		
-		List<HashedItdcVO> resultList = new ArrayList<HashedItdcVO> ();
-		
-		for(File doc : raws) {
-			resultList = new ArrayList<HashedItdcVO> ();
-			
-			try {
-				list = new ArrayList<String>();
-				br = new BufferedReader(
-						new InputStreamReader(
-								new FileInputStream(doc.getAbsolutePath()), "UTF8"));
-				String line = null;
-				System.out.println("read : " + doc.getName());
-				
-				while ((line = br.readLine()) != null) {
-					if(line.trim().length() > 0) {
-						// res_idx가 있을 경우, 먼저 PK값을 세팅
-						if(line.indexOf("<__res_idx__>") > -1) {
-							contents = new StringBuffer();
-							flag = false;
-							
-							String res = line.substring("<__res_idx__>".length(), line.length());
-							System.out.println(res);
-							if(RES_MEM_MAP.containsKey(res)) {
-								System.out.println(res);
-								vo = new HashedItdcVO ();
-								flag = true;
-								
-								vo.setMemIdx(RES_MEM_MAP.get(res));
-							}
-						} 
-						// 제목일 경우
-						else if(line.indexOf("<__title__>") > -1 && flag) {
-							vo.setTitle(line.substring("<__title__>".length(), line.length()).trim());							
-						}
-						// 컨텐츠내용
-						else if(line.indexOf("<__contents__>") > -1) {
-							contents.append(line.substring("<__contents__>".length(), line.length()).trim());			
-						}
-						// 시퀀스, 마지막 라인 값을 세팅
-						else if(line.indexOf("<__seq__>") > -1 && flag) {
-							vo.setSeq(line.substring("<__seq__>".length(), line.length()).trim());
-							vo.setContents(contents.toString());
-							vo.setLength(contents.length());
-							
-							// vo값을 재조정
-							resultList.add(SHERLOCK_MODULE.changeVO(vo, titDic));					
-						}
-						else if(flag && line.indexOf("<__") == -1){
-							contents.append(line);
-						}
-					}
-					
-				}
-				
-				br.close();
-				
-				// FGF 파일로 생성
-				chkError(SHERLOCK_MODULE.makePreFGF(resultList, doc.getName()), "makePreFGF");		
-				LOGGER.info(doc.getName() + " made pre-data...");
-				
-			} catch (Exception e) {
-				e.printStackTrace();
-				LOGGER.error("pre : " + e.getMessage());
-				System.exit(1);
-			} finally {
-				if (br != null) { 
-					try { br.close();} 
-					catch (IOException e1) {e1.printStackTrace();}
-				}
+		// 직업(job) + 질문별(ques_clss, 총 4개) 별 tf 수행
+		// 직업별 tf csv(키워드, 카운트, 등장비율) 생성
+		for(String quesClss : quesClssArr) {
+			for(String job : jobArr) {
+				List<String> tfList = CONAN_MODULE.tf(quesClss, job);
+				int total = CONAN_MODULE.makeTfCsv(tfList, quesClss, job);
 			}
-		}*/
+		}
 		
-		System.out.println("END: make hashed");
+		LOGGER.info("END: calculate tf");
+		
+		// 직업별 IDF를 구하여, 최종 CSV를 생성해낸다, 나중에 작업
+		/*LOGGER.info("BEGIN: calculate idf");
+		LOGGER.info("ENd: calculate idf");*/
+		
+		LOGGER.info("BEGIN: make training & test data");
+		// 최종 CSV를 기반으로 자소서별 Training 데이터와 검증용 데이터를 생성한다
+		//HashMap<String, List<String>> termMap = new HashMap<String, List<String>> ();  
+		for(String quesClss : quesClssArr) {
+			for(String job : jobArr) {
+				//termMap.put(job + "-" + quesClss, CONAN_MODULE.readTermList(job, quesClss));
+				List<String> termList = CONAN_MODULE.readTermList(job, quesClss);
+				
+				System.out.println(quesClss + "=>" + termList.size());
+				// make training data
+				CONAN_MODULE.makeTrainNTestCSV(termList, job, quesClss);
+				// make test data
+			}
+		}
+		LOGGER.info("END: make training & test data");
+		
+		LOGGER.info("END: start conan executor");
 	}
 	
 	
@@ -182,6 +135,7 @@ public class ConanExecutor {
 	 * 연산을 수행하는 스크립터
 	 */
 	public void execute() {
+		
 		// 먼저 apply 데이터를 읽은 후, res_idx와 mem_idx를 세팅한다
 		System.out.println("BEGIN: get mem res data");
 		HashMap<String, HashMap<String, ApplyVO>> MEM_APPLY_MAP = getApplyDataByMem();

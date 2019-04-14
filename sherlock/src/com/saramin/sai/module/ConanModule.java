@@ -13,10 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -31,6 +34,7 @@ import com.saramin.sai.vo.HashedItdcVO;
 import com.saramin.sai.vo.IntroDocVO;
 
 import ai.sai.sinabro.api.DanbiAPI;
+import ai.sai.sinabro.danbi.vo.MorphemeVO;
 
 
 /**
@@ -471,6 +475,589 @@ public class ConanModule {
 		}
 		
 		return total;
+	}
+	
+	
+	/**
+	 * JOB별 직업 사전 생성(label = 1, ques_clss = 0)
+	 * @return
+	 */
+	public boolean makeJobDic() {
+		HashMap<String, Integer> dicMap = new HashMap<String, Integer> ();
+		
+		BufferedReader br = null;
+		StringBuffer cont = null;
+		
+		String job = "";
+		String ques = "";
+		String label = "";
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/경력.fgf"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				// ex: 사무담당원
+				if(line.indexOf("<__job__>") > -1) {
+					job = line.substring("<__job__>".length(), line.length());
+				}
+				// 직업내용
+				else if(line.indexOf("<__content__>") > -1) {
+					cont = new StringBuffer();
+					cont.append(line.substring("<__content__>".length(), line.length()));
+				}
+				// 질문내용(ques_clss -> 0)
+				else if(line.indexOf("<__ques_clss__>") > -1) {
+					ques = line.substring("<__ques_clss__>".length(), line.length());
+				}
+				// label
+				else if(line.indexOf("<__label__>") > -1) {
+					label = line.substring("<__label__>".length(), line.length());
+					
+					// 데이터를 생성
+					if(ques.equals("0") && label.equals("1")) {
+						
+						// dicMap
+						//System.out.println(getNer(cont.toString(), "SCH"));
+						List<String> nounLst = DANBI.extractNoun(cont.toString());
+						for(String noun : nounLst) {
+							int cnt = 1;
+							if(dicMap.containsKey(noun)) {
+								cnt += dicMap.get(noun);
+							}
+							dicMap.put(noun, cnt);
+						}
+					}
+				}
+				// content의 중간값
+				else if(line.indexOf("<__") == -1) {
+					cont.append(line);
+				}
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeJobDic : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		// dicmap을 크기순으로 정렬
+		Map<String, Integer> result = dicMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                        (oldValue, newValue) -> oldValue, LinkedHashMap::new));
+		
+		BufferedWriter bw;
+		int total = 0;
+		
+		try {	
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(
+						CONFIG.getDataPath() + "dictionary/nambu/" + job + ".dic", false),						 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			for(String key : result.keySet()) {
+				if(result.get(key) > 1) 
+					bw.write(key + NEWLINE);				
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();			
+		}		
+		
+		return true;
+	}
+	
+	
+	/**
+	 * 직업 직무사전을 읽는다
+	 */
+	public HashMap<String, String> readTaskDic() {
+		HashMap<String, String> dicMap = new HashMap<String, String>();
+		BufferedReader br = null;
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "dictionary/nambu/사무담당원-user.dic"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				dicMap.put(line.trim(), "");
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeJobDic : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		return dicMap;
+	}
+	
+	
+	/**
+	 * 직업 직무사전을 읽는다
+	 */
+	public List<String> tf(String _quesClss, String _job) {
+		HashMap<String, Integer> tfMap = new HashMap<String, Integer> ();
+		List<String> rtnList = new ArrayList<String> ();
+		
+		BufferedReader br = null;
+		StringBuffer cont = null;
+		
+		String job = "";
+		String ques = "";
+		String label = "";
+		int rows = 0;
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/경력.fgf"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				if(line.indexOf("<__job__>") > -1) {
+					job = line.substring("<__job__>".length(), line.length());
+				}
+				// 직업내용
+				else if(line.indexOf("<__content__>") > -1) {
+					cont = new StringBuffer();
+					cont.append(line.substring("<__content__>".length(), line.length()));
+				}
+				// 질문내용(ques_clss -> 0)
+				else if(line.indexOf("<__ques_clss__>") > -1) {
+					ques = line.substring("<__ques_clss__>".length(), line.length());
+				}
+				// label
+				else if(line.indexOf("<__label__>") > -1) {
+					label = line.substring("<__label__>".length(), line.length());
+					
+					// 지정된 데이터일 경우
+					if(ques.equals(_quesClss) && job.equals(_job)) {
+						rows++;
+						
+						// dicMap
+						//System.out.println(getNer(cont.toString(), "SCH"));
+						HashMap<String, String> refineMap = new HashMap<String, String> (); 
+						List<String> nounLst = DANBI.extractNoun(cont.toString());
+						for(String noun : nounLst) {
+							if(!refineMap.containsKey(noun)) {
+								int cnt = 1;
+								if(tfMap.containsKey(noun)) {
+									cnt += tfMap.get(noun);
+								}
+								tfMap.put(noun, cnt);
+							}
+							
+							refineMap.put(noun, "");
+						}
+					}
+				}
+				// content의 중간값
+				else if(line.indexOf("<__") == -1) {
+					cont.append(line);
+				}
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeJobDic : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		// dicmap을 크기순으로 정렬
+		Map<String, Integer> result = tfMap.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                        (oldValue, newValue) -> oldValue, LinkedHashMap::new));
+		
+		// 직업별 tf csv(키워드, 카운트, 등장비율) 생성
+		for(String term : result.keySet()) {
+			int termCnt = result.get(term);
+			if(termCnt > 1) 
+				rtnList.add(term + "," + termCnt + "," + (double)termCnt/rows);			
+		}
+		
+		return rtnList;
+	}
+	
+	
+	/**
+	 * TF 데이터를 CSV로 내린다
+	 * 
+	 * @param tfList
+	 * @return
+	 */
+	public int makeTfCsv(List<String> tfList, String _quesClss, String _job) {
+		BufferedWriter bw = null;
+		int total = 0;
+		
+		try {
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(
+						CONFIG.getDataPath() + "pre-data/nambu/" + _job + "-" + _quesClss + ".csv", false),						 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			for(String tfStr : tfList) {
+				bw.write(tfStr + NEWLINE);
+				total++;
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		return total;
+	}
+	
+	
+	/**
+	 * 지정된 내용의 트레이닝 및 테스트 데이터를 생성한다 
+	 * 
+	 * @param termList
+	 * @param job
+	 * @param quesClss
+	 */
+	public void makeTrainNTestCSV(List<String> termList, String _job, String _quesClss) {
+		
+		BufferedReader br = null;
+		StringBuffer cont = null;
+		
+		List<String> trainList = new ArrayList<String> ();
+		List<String> testList = new ArrayList<String> ();
+		
+		String job = "";
+		String ques = "";
+		String label = "";
+		String length = "";
+		
+		int rows = 0;
+		int size = 500;
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/경력.fgf"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				if(line.indexOf("<__job__>") > -1) {
+					job = line.substring("<__job__>".length(), line.length());
+				}
+				// 직업내용
+				else if(line.indexOf("<__content__>") > -1) {
+					cont = new StringBuffer();
+					cont.append(line.substring("<__content__>".length(), line.length()));
+				}
+				// 질문내용(ques_clss -> 0)
+				else if(line.indexOf("<__ques_clss__>") > -1) {
+					ques = line.substring("<__ques_clss__>".length(), line.length());
+				}
+				// 길이
+				else if(line.indexOf("<__length__>") > -1) {
+					length = line.substring("<__length__>".length(), line.length());
+				}
+				// label
+				else if(line.indexOf("<__label__>") > -1) {
+					label = line.substring("<__label__>".length(), line.length());
+					
+					// 지정된 데이터일 경우
+					if(ques.equals(_quesClss) && job.equals(_job)) {
+						rows++;
+						int termCnt = 0;
+						
+						StringBuffer sb = new StringBuffer();
+						List<String> nounLst = DANBI.extractNoun(cont.toString());
+						HashMap<String, String> map = new HashMap<String, String> ();
+						for(String noun : nounLst) {
+							map.put(noun, "");
+						}
+						
+						// 길이 추가
+						sb.append(String.format("%.2f", Double.parseDouble(length)));
+						for(String term : termList) {
+							termCnt++;
+							
+							if(sb.length() > 0)
+								sb.append(",");
+							
+							if(map.containsKey(term)) {
+								sb.append("1");
+							} else {
+								sb.append("0");
+							}
+							
+							if(termCnt >= size) {
+								break;
+							}
+						}
+						
+						// training은 마지막에 label값 추가
+						testList.add(sb.toString());
+						trainList.add(sb.toString() + "," + label);
+					}
+				}
+				// content의 중간값
+				else if(line.indexOf("<__") == -1) {
+					cont.append(line);
+				}
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeTrainNTestCSV : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		// 최종으로 데이터 출력
+		BufferedWriter bw;
+		
+		try {	
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(
+						CONFIG.getDataPath() + "train-data/nambu/" + _job + "-" + _quesClss + ".csv", false),						 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			for(String line : trainList) {	
+				bw.write(line + NEWLINE);				
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();			
+		}
+		
+		bw = null;		
+		try {	
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(
+						CONFIG.getDataPath() + "test-data/nambu/" + _job + "-" + _quesClss + ".csv", false),						 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			for(String line : testList) {	
+				bw.write(line + NEWLINE);				
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();			
+		}
+	}
+	
+	
+	/**
+	 * 지정된 Term 데이터를 리스트화 시킨다
+	 * 
+	 * @param job
+	 * @param quesClss
+	 * @return
+	 */
+	public List<String> readTermList(String job, String quesClss) {
+		List<String> termList = new ArrayList<String> ();
+		BufferedReader br = null;
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "pre-data/nambu/" + job + "-" + quesClss + ".csv"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				String[] temp = line.split(",");
+				termList.add(temp[0]);
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeJobDic : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		return termList;
+	}
+	
+	
+	/**
+	 * 직무경력을 검증한다
+	 * 
+	 * @return
+	 */
+	public boolean verifyJob(HashMap<String, String> tskMap) {
+		BufferedReader br = null;
+		StringBuffer cont = null;
+		
+		String pk = "";
+		String job = "";
+		String ques = "";
+		String label = "";
+		
+		int passCnt = 0;
+		int failCnt = 0;
+		boolean flag = false;
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "raw-data/introdoc/nambu/경력.fgf"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				// pk
+				if(line.indexOf("<__pk__>") > -1) {
+					pk = line.substring("<__pk__>".length(), line.length());
+					flag = false;
+				}
+				// ex: 사무담당원
+				else if(line.indexOf("<__job__>") > -1) {
+					job = line.substring("<__job__>".length(), line.length());
+				}
+				// 직업내용
+				else if(line.indexOf("<__content__>") > -1) {
+					cont = new StringBuffer();
+					cont.append(line.substring("<__content__>".length(), line.length()));
+				}
+				// 질문내용(ques_clss -> 0)
+				else if(line.indexOf("<__ques_clss__>") > -1) {
+					ques = line.substring("<__ques_clss__>".length(), line.length());
+				}
+				// label
+				else if(line.indexOf("<__label__>") > -1) {
+					label = line.substring("<__label__>".length(), line.length());
+					
+					if(ques.equals("0")) {						
+						// dicMap
+						HashMap<String, List<String>> nerMap = getNer(cont.toString(), "TSK,SKLC,SKLS,JOB");
+						List<String> nounList = DANBI.extractNoun(cont.toString());
+						for(String kwd : nerMap.keySet()) {
+							if(tskMap.containsKey(kwd)) {
+								flag = true;
+								System.out.println(kwd + "=>" + nerMap.get(kwd));
+							}
+						}
+						
+						for(String kwd : nounList) {
+							if(tskMap.containsKey(kwd)) {
+								flag = true;
+								System.out.println(kwd);
+							}
+						}
+						
+						if(flag) {
+							System.out.println(pk + "=>PASS");
+							passCnt++;
+							//System.out.println(DANBI.extractNoun(cont.toString()));
+						} else {
+							System.out.println(pk + "=>FAIL");
+							failCnt++;
+							
+							System.out.println(DANBI.extractNoun(cont.toString()));
+						}
+					}
+				}
+				// content의 중간값
+				else if(line.indexOf("<__") == -1) {
+					cont.append(line);
+				}
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeJobDic : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		return true;
+	}
+	
+	
+	/**
+	 * 지정된 NER이 뽑혔는지 체크한 후 리스트를 가져온다
+	 * 
+	 * @param str
+	 * @param _ners
+	 * @return
+	 */
+	public HashMap<String, List<String>> getNer(String str, String _ners) {
+		HashMap<String, List<String>> rtnMap = new HashMap<String, List<String>> ();
+		String[] ners = _ners.split(",");
+		
+		List<HashMap<String, MorphemeVO>> morphLst = DANBI.morphemeAnalyze(str);
+		
+		if(morphLst != null && morphLst.size() > 0) {
+			for(HashMap<String, MorphemeVO> wordMap : morphLst) {
+				for(String word : wordMap.keySet()) {
+					// 개체명이 있으면 출력
+					if(wordMap.get(word).getNer() != null && wordMap.get(word).getNer().size() > 0) {
+						//LOGGER.debug(word + "=>" + wordMap.get(word).getNer().size());
+						List<String> nerList = null;
+						
+						HashMap<String, ArrayList<String>> map = wordMap.get(word).getNer();
+						for(String kwd : map.keySet()) {
+							nerList = map.get(kwd);
+							for(int i = 0; i < nerList.size(); i++) {
+								ArrayList<String> list = new ArrayList<String> ();
+								for(int n = 0; n < ners.length; n++) {
+									if(nerList.get(i).equals(ners[n])) {
+										list.add(ners[n]);									
+									}
+								}
+								
+								if(list.size() > 0)
+									rtnMap.put(kwd, list);
+							}										
+						}									
+					}								
+				}
+			}
+		}
+		
+		return rtnMap;
 	}
 
 	
