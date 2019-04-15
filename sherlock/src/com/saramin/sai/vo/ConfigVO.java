@@ -12,6 +12,8 @@ public class ConfigVO {
 	private String logPath;
 	/** 데이터 경로 */
 	private String dataPath;
+	/** 모델 경로 */
+	private String modelPath;
 	/** 개발 모드 여부 */
 	private boolean debug;	
 	
@@ -27,6 +29,12 @@ public class ConfigVO {
 	}
 	public void setDataPath(String dataPath) {
 		this.dataPath = dataPath;
+	}	
+	public String getModelPath() {
+		return modelPath;
+	}
+	public void setModelPath(String modelPath) {
+		this.modelPath = modelPath;
 	}
 	public boolean isDebug() {
 		return debug;

@@ -20,7 +20,9 @@ public class SherlockMain {
 		// HR 컨설팅 전용
 		else if(args[0].equals("conan")) {
 			ConanExecutor sherlock = new ConanExecutor("sherlock.local");
-			sherlock.pre();
+			//sherlock.pre();
+			//sherlock.parseExcel();
+			sherlock.execute();
 		}
 		// 데일리 파일을 머지
 		else if(args[0].equals("merge")) {

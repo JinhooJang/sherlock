@@ -200,7 +200,7 @@ public class ConanModule {
                     	
                     	vo = new IntroDocVO();
                     	
-                    	vo.setQues("새로운 시도");
+                    	vo.setQues("설득 및 팀워크");
                     	vo.setQuesClss("4");
                     	vo.setSequence("1");
                         vo.setTraining(true);
@@ -224,6 +224,201 @@ public class ConanModule {
             
             workbook.close();
         	
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        
+        return result;
+	}
+	
+	
+	/**
+	 * 엑셀에 있는 데이터를 읽는다
+	 * 
+	 * @return
+	 */
+	public HashMap<String, IntroDocVO> readResultExcel(String _job, String _jobType) {
+		HashMap<String, IntroDocVO> result = new HashMap<String, IntroDocVO> ();
+		File excel = new File(CONFIG.getDataPath() + "nambu/raw-data/excel/190415.xlsx");
+		IntroDocVO vo = null;
+        
+        try {        	
+    		FileInputStream excelFile = new FileInputStream(new File(excel.getAbsolutePath()));
+            Workbook workbook = new XSSFWorkbook(excelFile);
+            Sheet datatypeSheet = workbook.getSheetAt(0);
+            Iterator<Row> iterator = datatypeSheet.iterator();
+    
+            int idx = 0;
+            int row = 0;
+            
+            String pk = "";
+            String applyIdx = "";
+            String jobType = "";
+            String job = "";
+            String content = "";
+            
+            while (iterator.hasNext()) {
+            	row++;
+            	Row currentRow = iterator.next();
+            	
+            	if(row == 1)
+            		continue;            	
+            	
+                Iterator<Cell> cellIterator = currentRow.iterator();
+                idx = 0;
+                                
+                while (cellIterator.hasNext()) {
+                    Cell currentCell = cellIterator.next();
+                    //System.out.println(row + " " + getStringValue(currentCell).trim());
+                    
+                    // 수험번호
+                    if(idx == 0) {
+                    	applyIdx = getStringValue(currentCell).trim();
+                    }
+                    else if(idx == 2) {
+                    	jobType = getStringValue(currentCell).trim();
+                    	if(jobType.indexOf("신입") > -1)
+                    		jobType = "신입";
+                    	
+                    	if(jobType.indexOf("경력") > -1)
+                    		jobType = "경력";
+                    }
+                    else if(idx == 3) {
+                    	job = getStringValue(currentCell).trim();
+                    }
+                    // 직무능력 소개서
+                    else if(idx == 4) {
+                    	// 자소서 매핑
+                    	content = getStringValue(currentCell);                	                    
+                    }
+                    // 직무능력 소개서 글자수
+                    else if(idx == 5) {
+                    	if(_job.equals(job) && _jobType.equals(jobType)) {
+	                    	pk = "nambu_2_" + jobType + "_" + job + "_" + 0 + "_" + applyIdx;
+	                    	vo = new IntroDocVO();
+	                    	
+	                    	vo.setApplyIdx(applyIdx);
+	                    	vo.setLength(Double.parseDouble(getStringValue(currentCell))/1000);
+	                    	vo.setPk(pk);
+	                    	vo.setComp("nambu");
+	                    	vo.setContent(content);
+	                    	vo.setJob(job);
+	                    	vo.setJobType(jobType);
+	                    	vo.setQues("직무능력소개서");
+	                    	vo.setQuesClss("0");
+	                    	vo.setSequence("2");
+	                    	
+		                    result.put(pk, vo);
+                    	}
+                    }
+                    // 자소서1
+                    else if(idx == 6) {
+                    	content = getStringValue(currentCell);
+                    }
+                    // 자소서1 글자수
+                    else if(idx == 7) {
+                    	if(_job.equals(job) && _jobType.equals(jobType)) {
+	                    	pk = "nambu_2_" + jobType + "_" + job + "_" + 1 + "_" + applyIdx;
+	                    	vo = new IntroDocVO();
+	                    	
+	                    	vo.setApplyIdx(applyIdx);
+	                    	vo.setLength(Double.parseDouble(getStringValue(currentCell))/700);
+	                    	vo.setPk(pk);
+	                    	vo.setComp("nambu");
+	                    	vo.setContent(content);
+	                    	vo.setJob(job);
+	                    	vo.setJobType(jobType);
+	                    	vo.setSequence("2");
+	                    	
+	                    	vo.setQues("지원동기, 노력했던 경험");
+	                    	vo.setQuesClss("1");                    	
+	                    	
+	                    	result.put(pk, vo);
+                    	}
+                    }
+                    // 자소서2
+                    else if(idx == 8) {
+                    	content = getStringValue(currentCell);
+                    }
+                    // 자소서2 글자수
+                    else if(idx == 9) {
+                    	if(_job.equals(job) && _jobType.equals(jobType)) {
+	                    	pk = "nambu_2_" + jobType + "_" + job + "_" + 2 + "_" + applyIdx;
+	                    	vo = new IntroDocVO();
+	                    	
+	                    	vo.setApplyIdx(applyIdx);
+	                    	vo.setLength(Double.parseDouble(getStringValue(currentCell))/700);
+	                    	vo.setPk(pk);
+	                    	vo.setComp("nambu");
+	                    	vo.setContent(content);
+	                    	vo.setJob(job);
+	                    	vo.setJobType(jobType);
+	                    	vo.setSequence("2");
+	                    	
+	                    	vo.setQues("봉사정신");
+	                    	vo.setQuesClss("2");                    	
+	                    	
+	                    	result.put(pk, vo);
+                    	}
+                    }
+                    // 자소서3
+                    else if(idx == 10) {
+                    	content = getStringValue(currentCell);
+                    }
+                    // 자소서3 글자수
+                    else if(idx == 11) {
+                    	if(_job.equals(job) && _jobType.equals(jobType)) {
+	                    	pk = "nambu_2_" + jobType + "_" + job + "_" + 3 + "_" + applyIdx;
+	                    	vo = new IntroDocVO();
+	                    	
+	                    	vo.setApplyIdx(applyIdx);
+	                    	vo.setLength(Double.parseDouble(getStringValue(currentCell))/700);
+	                    	vo.setPk(pk);
+	                    	vo.setComp("nambu");
+	                    	vo.setContent(content);
+	                    	vo.setJob(job);
+	                    	vo.setJobType(jobType);
+	                    	vo.setSequence("2");
+	                    	
+	                    	vo.setQues("새로운 시도");
+	                    	vo.setQuesClss("3");                    	
+	                    	
+	                    	result.put(pk, vo);
+                    	}
+                    }
+                    // 자소서4
+                    else if(idx == 12) {
+                    	content = getStringValue(currentCell);                    	
+                    }
+                    // 자소서4 글자수
+                    else if(idx == 13) {
+                    	if(_job.equals(job) && _jobType.equals(jobType)) {
+	                    	pk = "nambu_2_" + jobType + "_" + job + "_" + 4 + "_" + applyIdx;
+	                    	vo = new IntroDocVO();
+	                    	
+	                    	vo.setApplyIdx(applyIdx);
+	                    	vo.setLength(Double.parseDouble(getStringValue(currentCell))/700);
+	                    	vo.setPk(pk);
+	                    	vo.setComp("nambu");
+	                    	vo.setContent(content);
+	                    	vo.setJob(job);
+	                    	vo.setJobType(jobType);
+	                    	vo.setSequence("2");
+	                    	
+	                    	vo.setQues("새로운 시도");
+	                    	vo.setQuesClss("4");
+	                    	
+	                    	result.put(pk, vo);
+                    	}
+                    }
+                    
+                    idx++;
+                }
+            }
+            
+            workbook.close();        	
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -446,8 +641,8 @@ public class ConanModule {
 			
 			for(String pk : EXCEL_MAP.keySet()) {
 				IntroDocVO vo = EXCEL_MAP.get(pk);
+				//System.out.println(pk);
 				
-				if(vo.getLabel().trim().length() > 0) {
 					bw.write("<__pk__>" + pk + NEWLINE);
 					bw.write("<__apply_idx__>" + vo.getApplyIdx() + NEWLINE);
 					bw.write("<__comp__>" + vo.getComp() + NEWLINE);
@@ -458,7 +653,8 @@ public class ConanModule {
 					bw.write("<__ques_clss__>" + vo.getQuesClss() + NEWLINE);
 					bw.write("<__content__>" + vo.getContent() + NEWLINE);
 					bw.write("<__length__>" + vo.getLength() + NEWLINE);
-					
+				
+				if(vo.getLabel() != null && vo.getLabel().trim().length() > 0) {
 					if(vo.getLabel().equalsIgnoreCase("pass")) {
 						bw.write("<__label__>1" + NEWLINE);
 					} else if(vo.getLabel().equalsIgnoreCase("pass")) {
@@ -475,7 +671,7 @@ public class ConanModule {
 		}
 		
 		return total;
-	}
+	}	
 	
 	
 	/**
@@ -808,7 +1004,19 @@ public class ConanModule {
 						}
 						
 						// 길이 추가
-						sb.append(String.format("%.2f", Double.parseDouble(length)));
+						if(Double.parseDouble(length) >= 0.8) {
+							sb.append("4");
+						} else if(Double.parseDouble(length) >= 0.6) {
+							sb.append("3");
+						} else if(Double.parseDouble(length) >= 0.4) {
+							sb.append("2");
+						} else if(Double.parseDouble(length) >= 0.2) {
+							sb.append("1");
+						} else {
+							sb.append("0");
+						}
+						
+						//sb.append(String.format("%.2f", Double.parseDouble(length)));
 						for(String term : termList) {
 							termCnt++;
 							
@@ -888,6 +1096,219 @@ public class ConanModule {
 	
 	
 	/**
+	 * 지정된 내용의 테스트 데이터를 생성한다 
+	 * 
+	 * @param termList
+	 * @param job
+	 * @param quesClss
+	 */
+	public void makeTestCSV(
+			List<String> termList, String _job, String _quesClss, HashMap<String, String> blindMap,
+			HashMap<String, HashMap<String, Object>> scoreMap) {
+		
+		// test 데이터를 만드는 과정에 블라인드 위반 여부를 넣는다
+		BufferedReader br = null;
+		StringBuffer cont = null;
+		
+		List<String> testList = new ArrayList<String> ();
+		
+		String pk = "";
+		String job = "";
+		String ques = "";
+		String length = "";
+		
+		int rows = 0;
+		int size = 500;
+		HashMap<String, String> map = new HashMap<String, String> ();
+		HashMap<String, Object> object = new HashMap<String, Object> (); 
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "nambu/raw-data/" + _job + ".fgf"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				if(line.indexOf("<__apply_idx__>") > -1) {
+					pk = line.substring("<__apply_idx__>".length(), line.length());
+					
+					map = new HashMap<String, String> ();
+				}
+				// 직업
+				else if(line.indexOf("<__job__>") > -1) {
+					job = line.substring("<__job__>".length(), line.length());
+				}
+				// 직업내용
+				else if(line.indexOf("<__content__>") > -1) {
+					cont = new StringBuffer();
+					cont.append(line.substring("<__content__>".length(), line.length()));
+				}
+				// 질문내용(ques_clss -> 0)
+				else if(line.indexOf("<__ques_clss__>") > -1) {
+					ques = line.substring("<__ques_clss__>".length(), line.length());
+				}
+				// 길이
+				else if(line.indexOf("<__length__>") > -1) {
+					length = line.substring("<__length__>".length(), line.length());
+					
+					// 지정된 데이터일 경우
+					if(ques.equals(_quesClss) && job.equals(_job)) {
+						rows++;
+						int termCnt = 0;
+						
+						StringBuffer sb = new StringBuffer();
+						List<String> nounLst = DANBI.extractNoun(cont.toString());
+						HashMap<String, List<String>> nerMap = getNer(cont.toString(), "SCH");
+						
+						StringBuffer blindContent = new StringBuffer(); 
+						//StringBuffer blindNerContent = new StringBuffer();
+						
+						for(String noun : nounLst) {
+							map.put(noun, "");
+							
+							// 블라인드 위반 찾기							
+							if(blindMap.containsKey(noun)) {
+								if(blindContent.length() > 0) 
+									blindContent.append(",");
+								blindContent.append(noun);								
+							}
+						}
+						
+						// ner 데이터를 세팅
+						if(nerMap != null && nerMap.size() > 0) {
+							for(String kwd : nerMap.keySet()) {
+								if(blindContent.length() > 0) 
+									blindContent.append(",");
+								
+								blindContent.append(kwd);
+								//nerMap.get(kwd);
+							}
+						}
+						
+						// 길이 추가
+						if(Double.parseDouble(length) >= 0.8) {
+							sb.append(pk + ",4");
+						} else if(Double.parseDouble(length) >= 0.6) {
+							sb.append(pk + ",3");
+						} else if(Double.parseDouble(length) >= 0.4) {
+							sb.append(pk + ",2");
+						} else if(Double.parseDouble(length) >= 0.2) {
+							sb.append(pk + ",1");
+						} else {
+							sb.append(pk + ",0");
+						}						
+						
+						for(String term : termList) {
+							termCnt++;
+							
+							if(sb.length() > 0)
+								sb.append(",");
+							
+							if(map.containsKey(term)) {
+								sb.append("1");
+							} else {
+								sb.append("0");
+							}
+							
+							if(termCnt >= size) {
+								break;
+							}
+						}
+						
+						// score map을 세팅
+						if(scoreMap.containsKey(pk)) {
+							object = scoreMap.get(pk);
+						} else {
+							object = new HashMap<String, Object> (); 
+						}
+						
+						object.put(ques + "_blind", blindContent.toString());
+						scoreMap.put(pk, object);
+						
+						testList.add(sb.toString());
+					}
+				}				
+				// content의 중간값
+				else if(line.indexOf("<__") == -1) {
+					cont.append(line);
+				}
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeTestCSV : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		// 최종으로 데이터 출력
+		BufferedWriter bw;
+		try {	
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(
+						CONFIG.getDataPath() + "test-data/nambu-2/" + _job + "-" + _quesClss + ".csv", false),						 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			for(String line : testList) {	
+				bw.write(line + NEWLINE);				
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();			
+		}
+	}
+	
+	
+	/**
+	 * ScoreMap 데이터를 출력한다
+	 * 
+	 * @param resultList
+	 * @param _name
+	 */
+	public boolean makeScoreCSV(HashMap<String, HashMap<String, Object>> scoreMap) {
+		BufferedWriter bw;
+		StringBuffer sb = null;
+		String filePath = CONFIG.getDataPath() + "/result-data/sherlock/nambu/nambu-score.csv";
+						
+		try {	
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(filePath, false),	// true to append 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			
+			for(String pk : scoreMap.keySet()) {
+				sb = new StringBuffer();
+				
+				HashMap<String, Object> map = scoreMap.get(pk);
+				// pk,1스코어,표절률,블라인드
+				sb.append(pk + "," + map.get("1_score") + ",0," + map.get("1_blind"));
+				sb.append("," + map.get("2_score") + ",0," + map.get("2_blind"));
+				sb.append("," + map.get("2_score") + ",0," + map.get("2_blind"));
+				sb.append("," + map.get("2_score") + ",0," + map.get("2_blind"));
+				
+				bw.write(sb.toString() + NEWLINE);
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();
+			return false;
+		}
+		
+		return true;
+	}
+	
+	
+	
+	/**
 	 * 지정된 Term 데이터를 리스트화 시킨다
 	 * 
 	 * @param job
@@ -922,6 +1343,41 @@ public class ConanModule {
 		}
 		
 		return termList;
+	}
+	
+	
+	/**
+	 * 블라인드 위배 사전을 읽는다
+	 * 
+	 * @return
+	 */
+	public HashMap<String, String> blindMap() {
+		HashMap<String, String> blindMap = new HashMap<String, String> ();
+		BufferedReader br = null;
+		
+		try {
+			br = new BufferedReader(
+					new InputStreamReader(
+					new FileInputStream(CONFIG.getDataPath() + "dictionary/blind/blind.dic"), "UTF8"));
+			
+			String line = null;				
+			while ((line = br.readLine()) != null) {
+				blindMap.put(line.trim(), "");
+			}
+
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("blindMap : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		return blindMap;
 	}
 	
 	
@@ -976,6 +1432,7 @@ public class ConanModule {
 						// dicMap
 						HashMap<String, List<String>> nerMap = getNer(cont.toString(), "TSK,SKLC,SKLS,JOB");
 						List<String> nounList = DANBI.extractNoun(cont.toString());
+						
 						for(String kwd : nerMap.keySet()) {
 							if(tskMap.containsKey(kwd)) {
 								flag = true;
