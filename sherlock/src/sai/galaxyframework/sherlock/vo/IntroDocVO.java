@@ -1,4 +1,4 @@
-package com.saramin.sai.vo;
+package sai.galaxyframework.sherlock.vo;
 
 
 /**
@@ -25,6 +25,8 @@ public class IntroDocVO {
 	private String ques;
 	/** 질문분류 */
 	private String quesClss;
+	/** 질문순서 */
+	private String quesSeq;
 	/** 본문 */
 	private String content;
 	/** 글자수 비율 */
@@ -82,6 +84,12 @@ public class IntroDocVO {
 	}
 	public void setQuesClss(String quesClss) {
 		this.quesClss = quesClss;
+	}	
+	public String getQuesSeq() {
+		return quesSeq;
+	}
+	public void setQuesSeq(String quesSeq) {
+		this.quesSeq = quesSeq;
 	}
 	public String getContent() {
 		return content;

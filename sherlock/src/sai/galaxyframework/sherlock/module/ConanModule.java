@@ -1,4 +1,4 @@
-package com.saramin.sai.module;
+package sai.galaxyframework.sherlock.module;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -27,14 +27,13 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import com.saramin.sai.util.CommonUtil;
-import com.saramin.sai.util.Logger;
-import com.saramin.sai.vo.ConfigVO;
-import com.saramin.sai.vo.HashedItdcVO;
-import com.saramin.sai.vo.IntroDocVO;
-
 import ai.sai.sinabro.api.DanbiAPI;
 import ai.sai.sinabro.danbi.vo.MorphemeVO;
+import sai.galaxyframework.sherlock.util.CommonUtil;
+import sai.galaxyframework.sherlock.util.Logger;
+import sai.galaxyframework.sherlock.vo.ConfigVO;
+import sai.galaxyframework.sherlock.vo.HashedItdcVO;
+import sai.galaxyframework.sherlock.vo.IntroDocVO;
 
 
 /**
@@ -65,9 +64,9 @@ public class ConanModule {
 	 * 엑셀에 있는 데이터를 읽는다
 	 * @return
 	 */
-	public HashMap<String, IntroDocVO> readResultExcel(String name) {
+	public HashMap<String, IntroDocVO> readRawdata(String seq) {
 		HashMap<String, IntroDocVO> result = new HashMap<String, IntroDocVO> ();
-		File excel = new File(CONFIG.getDataPath() + "nambu/raw-data/excel/라벨_" + name + ".xlsx");
+		File excel = new File(CONFIG.getDataPath() + "galaxy-framework/sherlock/raw-data/" + idx + "/introdocs.xlsx");
 		IntroDocVO vo = null;
         
         try {        	
@@ -76,13 +75,21 @@ public class ConanModule {
             Sheet datatypeSheet = workbook.getSheetAt(0);
             Iterator<Row> iterator = datatypeSheet.iterator();
     
-            int idx = 0;
             int row = 0;
+            int col = 0;
             
+            // 자기소개서의 유니크 (시퀀스_신입/경력_질문분류_수험번호)
+            String pk = "";
+            String comp = "KDIC";	// 예금보험공사
+            
+            // 수험번호
             String applyIdx = "";
+            // 지원구분
             String jobType = "";
+            // 지원분야
             String job = "";
-            String score = "";
+            // 컨텐츠
+            String answer = "";
             
             while (iterator.hasNext()) {
             	row++;
@@ -92,47 +99,48 @@ public class ConanModule {
             		continue;
             	
             	Iterator<Cell> cellIterator = currentRow.iterator();
-                idx = 0;
+            	col = 0;
                 
                 while (cellIterator.hasNext()) {
                     Cell currentCell = cellIterator.next();
                     
                     // 수험번호
-                    if(idx == 2) {
+                    if(col == 1) {
                     	applyIdx = getStringValue(currentCell);                        
                     } 
                     // 지원구분
-                    else if(idx == 3) { 
+                    else if(col == 3) { 
                     	jobType = getStringValue(currentCell);                                                
                     } 
                     // 지원분야
-                    else if(idx == 4) {
-                    	job = getStringValue(currentCell);                    	
+                    else if(col == 4) {
+                    	job = getStringValue(currentCell);
                     }        
                     // 직무능력소개
-                    else if(idx == 7) {
-                    	score = getStringValue(currentCell);
+                    else if(col == 5) {
+                    	answer = getStringValue(currentCell);
                     	
                     	vo = new IntroDocVO();
                     	
-                    	vo.setQues("직무능력소개서");
-                    	vo.setQuesClss("0");
+                    	vo.setQues("직무능력");
+                    	vo.setQuesClss("8");	// 분류
+                    	vo.setQuesSeq("1");		// 순서
                     	
-                    	vo.setSequence("1");
-                        vo.setTraining(true);
-                        vo.setComp("nambu");
+                    	vo.setSequence(seq);
+                        vo.setTraining(false);
+                        vo.setComp(comp);
                         vo.setApplyIdx(applyIdx);
                     	vo.setJobType(jobType);
                     	vo.setJob(job);
-                    	vo.setLabel(score);
-                        
-                    	vo.setPk(vo.getComp() + "_" + vo.getSequence() + "_" + vo.getJobType() 
-                    			+ "_" + vo.getJob() + "_" + vo.getQuesClss() + "_" + vo.getApplyIdx());
+                    	vo.setLength(answer.trim().length());
+                    	
+                    	// 자기소개서의 유니크 (시퀀스_신입/경력_질문순서_수험번호)
+                    	vo.setPk(seq + "_" + 1 + "_" + vo.getJob() + "_" + vo.getQuesSeq() + "_" + vo.getApplyIdx());
                     	
                     	result.put(vo.getPk(), vo);
                     }
                     // 1번문항
-                    else if(idx == 8) {
+                    else if(col == 8) {
                     	score = getStringValue(currentCell);
                     	
                     	vo = new IntroDocVO();
@@ -153,7 +161,7 @@ public class ConanModule {
                     	result.put(vo.getPk(), vo);
                     }
                     // 2번문항
-                    else if(idx == 9) {
+                    else if(col == 9) {
                     	score = getStringValue(currentCell);
                     	
                     	vo = new IntroDocVO();
@@ -174,7 +182,7 @@ public class ConanModule {
                     	result.put(vo.getPk(), vo);
                     }
                     // 3번 문항
-                    else if(idx == 10) {
+                    else if(col == 10) {
                     	score = getStringValue(currentCell);
                     	
                     	vo = new IntroDocVO();
@@ -195,7 +203,7 @@ public class ConanModule {
                     	result.put(vo.getPk(), vo);
                     }
                     // 4번 문항
-                    else if(idx == 11) {
+                    else if(col == 11) {
                     	score = getStringValue(currentCell);
                     	
                     	vo = new IntroDocVO();
@@ -216,7 +224,7 @@ public class ConanModule {
                     	result.put(vo.getPk(), vo);
                     }
                     
-                    idx++;
+                    col++;
                 }
                 
                 row++;
@@ -244,7 +252,7 @@ public class ConanModule {
 		File excel = new File(CONFIG.getDataPath() + "nambu/raw-data/excel/190415.xlsx");
 		IntroDocVO vo = null;
         
-        try {        	
+        try {
     		FileInputStream excelFile = new FileInputStream(new File(excel.getAbsolutePath()));
             Workbook workbook = new XSSFWorkbook(excelFile);
             Sheet datatypeSheet = workbook.getSheetAt(0);
@@ -407,7 +415,7 @@ public class ConanModule {
 	                    	vo.setJobType(jobType);
 	                    	vo.setSequence("2");
 	                    	
-	                    	vo.setQues("새로운 시도");
+	                    	vo.setQues("설득 및 팀워크");
 	                    	vo.setQuesClss("4");
 	                    	
 	                    	result.put(pk, vo);
@@ -1159,6 +1167,7 @@ public class ConanModule {
 						StringBuffer sb = new StringBuffer();
 						List<String> nounLst = DANBI.extractNoun(cont.toString());
 						HashMap<String, List<String>> nerMap = getNer(cont.toString(), "SCH");
+						HashMap<String, String> kwdMap = new HashMap<String, String>();
 						
 						StringBuffer blindContent = new StringBuffer(); 
 						//StringBuffer blindNerContent = new StringBuffer();
@@ -1168,20 +1177,25 @@ public class ConanModule {
 							
 							// 블라인드 위반 찾기							
 							if(blindMap.containsKey(noun)) {
-								if(blindContent.length() > 0) 
-									blindContent.append(",");
-								blindContent.append(noun);								
+								if(!kwdMap.containsKey(noun)) {
+									if(blindContent.length() > 0) 
+										blindContent.append("|");
+									
+									blindContent.append(noun);									
+								}
+								kwdMap.put(noun, "");
 							}
 						}
 						
 						// ner 데이터를 세팅
 						if(nerMap != null && nerMap.size() > 0) {
 							for(String kwd : nerMap.keySet()) {
-								if(blindContent.length() > 0) 
-									blindContent.append(",");
-								
-								blindContent.append(kwd);
-								//nerMap.get(kwd);
+								if(!kwdMap.containsKey(kwd)) {
+									if(blindContent.length() > 0) 
+										blindContent.append("|");
+									blindContent.append(kwd);
+								}
+								kwdMap.put(kwd, "");
 							}
 						}
 						
@@ -1289,10 +1303,10 @@ public class ConanModule {
 				
 				HashMap<String, Object> map = scoreMap.get(pk);
 				// pk,1스코어,표절률,블라인드
-				sb.append(pk + "," + map.get("1_score") + ",0," + map.get("1_blind"));
-				sb.append("," + map.get("2_score") + ",0," + map.get("2_blind"));
-				sb.append("," + map.get("2_score") + ",0," + map.get("2_blind"));
-				sb.append("," + map.get("2_score") + ",0," + map.get("2_blind"));
+				sb.append(pk + "," + map.get("1_score") + "," + map.get("1_copyRate") + "," + map.get("1_copyList") + "," + map.get("1_blind"));
+				sb.append("," + map.get("2_score") + "," + map.get("2_copyRate") + "," + map.get("2_copyList") + "," + map.get("2_blind"));
+				sb.append("," + map.get("3_score") + "," + map.get("3_copyRate") + "," + map.get("3_copyList") + "," + map.get("3_blind"));
+				sb.append("," + map.get("4_score") + "," + map.get("4_copyRate") + "," + map.get("4_copyList") + "," + map.get("4_blind"));
 				
 				bw.write(sb.toString() + NEWLINE);
 			}
@@ -1305,8 +1319,7 @@ public class ConanModule {
 		
 		return true;
 	}
-	
-	
+		
 	
 	/**
 	 * 지정된 Term 데이터를 리스트화 시킨다
@@ -1343,6 +1356,275 @@ public class ConanModule {
 		}
 		
 		return termList;
+	}
+	
+	
+	/**
+	 * 지정된 내용의 테스트 데이터를 생성한다 
+	 * 
+	 * @param termList
+	 * @param job
+	 * @param quesClss
+	 */
+	public HashMap<String, HashMap<String, String>> getSentenceHashed(String quesClss) {
+		HashMap<String, HashMap<String, String>> sentenceMap = new HashMap<String, HashMap<String, String>> ();
+		
+		BufferedReader br = null;
+		StringBuffer cont = null;
+		
+		String pk = "";
+		String ques = "";
+		String seq = "";
+		
+		File[] itdcs = new File(CONFIG.getDataPath() + "nambu/raw-data/itdc/").listFiles();
+		
+		try {
+			for(File itdc : itdcs) {
+				br = new BufferedReader(
+						new InputStreamReader(
+						new FileInputStream(itdc.getAbsolutePath()), "UTF8"));
+				
+				String line = null;				
+				while ((line = br.readLine()) != null) {
+					if(line.indexOf("<__apply_idx__>") > -1) {
+						pk = line.substring("<__apply_idx__>".length(), line.length());
+					}
+					// 직업내용
+					else if(line.indexOf("<__content__>") > -1) {
+						cont = new StringBuffer();
+						cont.append(line.substring("<__content__>".length(), line.length()));
+					}
+					// 차수
+					else if(line.indexOf("<__sequence__>") > -1) {
+						seq = line.substring("<__sequence__>".length(), line.length());
+					}
+					// 질문내용(ques_clss -> 0)
+					else if(line.indexOf("<__ques_clss__>") > -1) {
+						ques = line.substring("<__ques_clss__>".length(), line.length());
+					}
+					// 길이
+					else if(line.indexOf("<__length__>") > -1) {
+						
+						// 지정된 데이터일 경우
+						if(ques.equals(quesClss)) {
+							StringBuffer sb = new StringBuffer();
+							String[] contents = cont.toString().replaceAll("\n", ".").split("\\.");
+							
+							for(String sentence : contents) {
+								if(sentence.trim().length() == 0)
+									continue;
+								
+								sb = new StringBuffer();
+								List<String> tokens = DANBI.extractNoun(sentence);
+								
+								if(tokens.size() > 3) {
+									for(String token : tokens) {
+										if(sb.length() > 0)
+											sb.append(" ");
+										
+										sb.append(token);
+									}
+									
+									String temp = COMMON.toSha(sb.toString()).substring(0, 10);
+									HashMap<String, String> applyMap = null;
+									// 이미 동일 문장이 존재한다면
+									if(sentenceMap.containsKey(temp)) {
+										applyMap = sentenceMap.get(temp);
+									} else {
+										applyMap = new HashMap<String, String> ();
+									}
+									applyMap.put(pk + "-" + seq , "");
+									sentenceMap.put(temp, applyMap);
+								} 
+								// 문장의 길이가 20글자 이상인 것
+								else if(sentence.length() >= 20) {
+									String temp = COMMON.toSha(sentence).substring(0, 10);
+									HashMap<String, String> applyMap = null;
+									
+									// 이미 동일 문장이 존재한다면
+									if(sentenceMap.containsKey(temp)) {
+										applyMap = sentenceMap.get(temp);
+									} else {
+										applyMap = new HashMap<String, String> ();
+									}
+									applyMap.put(pk + "-" + seq , "");
+									sentenceMap.put(temp, applyMap);
+								}								
+							}
+						}
+					}				
+					// content의 중간값
+					else if(line.indexOf("<__") == -1) {
+						cont.append(line);
+					}
+				}
+	
+				br.close();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("makeSentenceHashed : " + e.getMessage());
+			System.exit(1);
+		} finally {
+			if (br != null) { 
+				try { br.close();} 
+				catch (IOException e1) {e1.printStackTrace();}
+			}
+		}
+		
+		return sentenceMap;
+	}
+	
+	
+	/**
+	 * 문장별 해시 데이터를 CSV로 내린다
+	 * 
+	 * @param map
+	 * @param ques
+	 * @return
+	 */
+	public int makeSentenceHashedCSV(HashMap<String, HashMap<String, String>> map, String ques) {
+		BufferedWriter bw = null;
+		int total = 0;
+		
+		try {
+			bw = new BufferedWriter(
+					new OutputStreamWriter(
+					new FileOutputStream(
+						CONFIG.getDataPath() + "nambu/pre-data/itdc/" + ques + ".csv", false),						 
+						StandardCharsets.UTF_8));	// set encoding utf-8
+			
+			StringBuffer str = null;
+			for(String sentence : map.keySet()) {
+				str = new StringBuffer();
+				
+				HashMap<String, String> applyMap = map.get(sentence);
+				for(String apply : applyMap.keySet()) {
+					if(str.length() > 0)
+						str.append("|");						
+					str.append(apply);
+				}
+				
+				bw.write(sentence + "," + str.toString() + NEWLINE);
+				total++;
+			}
+			
+			bw.close();
+		} catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		return total;
+	}
+	
+	
+	/**
+	 * 표절율을 계산한다
+	 * 
+	 * @param scoreMap
+	 */
+	public void calculateCopy(HashMap<String, HashMap<String, Object>> scoreMap) {
+		BufferedReader br = null;
+		File[] hasheds = new File(CONFIG.getDataPath() + "nambu/pre-data/itdc").listFiles();
+				
+		for(File hashed : hasheds) {
+			String name = hashed.getName().substring(0, hashed.getName().indexOf(".")); 
+			HashMap<String, Integer> itdcCnt = new HashMap<String, Integer> ();
+			HashMap<String, List<String>> itdcList = new HashMap<String, List<String>>();
+			
+			try {					
+				br = new BufferedReader(
+						new InputStreamReader(
+						new FileInputStream(hashed.getAbsolutePath()), "UTF8"));
+				
+				String line = null;				
+				while ((line = br.readLine()) != null) {
+					if(line.trim().length() > 0) {
+						String[] temp = line.split(",");
+						String[] applys = temp[1].split("\\|");
+						
+						// 자소서별 카운트 (최근 차수만, 2)
+						for(String apply : applys) {
+							if(apply.indexOf("-2") > -1) {
+								int cnt = 1;
+								if(itdcCnt.containsKey(apply)) {
+									cnt += itdcCnt.get(apply);
+								}
+								itdcCnt.put(apply, cnt);
+								
+								// 리스트 세팅
+								List<String> lst = null;
+								if(itdcList.containsKey(apply)) {
+									lst = itdcList.get(apply);
+								} else {
+									lst = new ArrayList<String> (); 
+								}
+								
+								String[] targets = temp[1].split("\\|");
+								for(String target : targets) {
+									if(apply.equals(target))
+										continue;
+									
+									lst.add(target);
+								}
+								
+								itdcList.put(apply, lst);
+							}
+						}
+					}
+				}
+				
+				for(String pk : itdcList.keySet()) {
+					List<String> lst = itdcList.get(pk);
+					
+					HashMap<String, Integer> targetMap = new HashMap<String, Integer>();			
+					
+					for(String target : lst) {
+						int cnt = 1;
+						if(targetMap.containsKey(target)) {
+							cnt += targetMap.get(target);
+						}
+						targetMap.put(target, cnt);
+					}
+					
+					double maxRate = 0.0;
+					StringBuffer copyList = new StringBuffer();
+					for(String target : targetMap.keySet()) {
+						double copyRate = (double)targetMap.get(target)/itdcCnt.get(pk);
+						
+						if(maxRate <= copyRate)
+							maxRate = copyRate;
+						
+						// 문장이 5개 이상에 카피율이 30% 이상인 것만 출력
+						if(copyRate > 0.3 && itdcCnt.get(pk) > 5) {
+							if(copyList.length() > 0)
+								copyList.append("|");
+							copyList.append(target + ":" + (int)((maxRate*10000)/100) + "%");
+							// System.out.println(pk + "=>" + target + " " + targetMap.get(target) + "/" + itdcCnt.get(pk) + "=>" + copyRate);
+						}
+					}
+					
+					// max rate를 표절율로 지정
+					String applyIdx = pk.substring(0, pk.indexOf("-"));
+					if(scoreMap.containsKey(applyIdx)) {
+						HashMap<String, Object> obj = scoreMap.get(applyIdx);
+						obj.put(name + "_copyRate", (int)((maxRate*10000)/100) + "%");
+						obj.put(name + "_copyList", copyList.toString());
+						scoreMap.put(applyIdx, obj);
+					}
+				}
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+				LOGGER.error("makeSentenceHashed : " + e.getMessage());
+				System.exit(1);
+			} finally {
+				if (br != null) { 
+					try { br.close();} 
+					catch (IOException e1) {e1.printStackTrace();}
+				}
+			}
+		}		
 	}
 	
 	
@@ -1497,6 +1779,7 @@ public class ConanModule {
 		if(morphLst != null && morphLst.size() > 0) {
 			for(HashMap<String, MorphemeVO> wordMap : morphLst) {
 				for(String word : wordMap.keySet()) {
+					
 					// 개체명이 있으면 출력
 					if(wordMap.get(word).getNer() != null && wordMap.get(word).getNer().size() > 0) {
 						//LOGGER.debug(word + "=>" + wordMap.get(word).getNer().size());
@@ -1515,9 +1798,9 @@ public class ConanModule {
 								
 								if(list.size() > 0)
 									rtnMap.put(kwd, list);
-							}										
-						}									
-					}								
+							}
+						}
+					}
 				}
 			}
 		}

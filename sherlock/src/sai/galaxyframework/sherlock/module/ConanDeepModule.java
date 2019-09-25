@@ -1,4 +1,4 @@
-package com.saramin.sai.module;
+package sai.galaxyframework.sherlock.module;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -13,9 +13,9 @@ import org.tensorflow.SavedModelBundle;
 import org.tensorflow.Session;
 import org.tensorflow.Tensor;
 
-import com.saramin.sai.util.CommonUtil;
-import com.saramin.sai.util.Logger;
-import com.saramin.sai.vo.ConfigVO;
+import sai.galaxyframework.sherlock.util.CommonUtil;
+import sai.galaxyframework.sherlock.util.Logger;
+import sai.galaxyframework.sherlock.vo.ConfigVO;
 
 
 /**

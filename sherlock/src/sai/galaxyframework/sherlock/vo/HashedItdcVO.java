@@ -1,4 +1,4 @@
-package com.saramin.sai.vo;
+package sai.galaxyframework.sherlock.vo;
 
 
 /**
@@ -12,6 +12,8 @@ public class HashedItdcVO {
 	
 	/** mem_idx + seq 를 합친 것 해시 10글자 */
 	private String pk;
+	/** 자소서번호 */
+	private String resIdx;
 	/** 멤버번호 */
 	private String memIdx;
 	/** 자소서 소제목 */
@@ -38,6 +40,12 @@ public class HashedItdcVO {
 	}
 	public void setMemIdx(String memIdx) {
 		this.memIdx = memIdx;
+	}	
+	public String getResIdx() {
+		return resIdx;
+	}
+	public void setResIdx(String resIdx) {
+		this.resIdx = resIdx;
 	}
 	public String getTitle() {
 		return title;

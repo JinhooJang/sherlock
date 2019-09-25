@@ -1,4 +1,4 @@
-package com.saramin.sai.service;
+package sai.galaxyframework.sherlock.service;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -6,32 +6,34 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-import com.saramin.sai.module.ConanDeepModule;
-import com.saramin.sai.module.ConanModule;
-import com.saramin.sai.util.CommonUtil;
-import com.saramin.sai.util.Logger;
-import com.saramin.sai.vo.ApplyVO;
-import com.saramin.sai.vo.ConfigVO;
-import com.saramin.sai.vo.HashedItdcVO;
-import com.saramin.sai.vo.IntroDocVO;
+import sai.galaxyframework.sherlock.module.SherlockModule;
+import sai.galaxyframework.sherlock.util.CommonUtil;
+import sai.galaxyframework.sherlock.util.Logger;
+import sai.galaxyframework.sherlock.vo.ApplyVO;
+import sai.galaxyframework.sherlock.vo.ConfigVO;
+import sai.galaxyframework.sherlock.vo.HashedItdcVO;
 
 
 /**
- * 자기소개서 분석 시스템(HR 컨설팅용)
+ * 자기소개서 표절 시스템
  * 
  * @author jinhoo.jang
- * @since 2019.04.12
+ * @since 2019.03.28
  * @team AI Part
  */
-public class ConanExecutor {
+public class SherlockExecutor {
 	private CommonUtil COMMON;
-	private ConanModule CONAN_MODULE;
-	private ConanDeepModule CONAN_DEEP_MODULE;
+	private SherlockModule SHERLOCK_MODULE;
 	private ConfigVO CONFIG;
 	private Logger LOGGER;
+	private boolean isBulk;
 	
 	private HashMap<String, HashMap<String, List<String>>> MEM_TIT_HASHED_LIST;
 	
@@ -41,9 +43,10 @@ public class ConanExecutor {
 	/**
 	 * 생성자
 	 */
-	public ConanExecutor(String propNm) {
+	public SherlockExecutor(String propNm, boolean isBulk) {
 		COMMON = new CommonUtil();
-		CONFIG = new ConfigVO();		
+		CONFIG = new ConfigVO();
+		this.isBulk = isBulk;
 		
 		try {
 			// xml을 읽는다
@@ -52,13 +55,11 @@ public class ConanExecutor {
 			// 데이터 파싱
 			CONFIG.setDataPath(map.get("config.dataPath"));;
 			CONFIG.setLogPath(map.get("config.logPath"));;
-			CONFIG.setModelPath(map.get("config.modelPath"));
 			CONFIG.setDebug(Boolean.valueOf(map.get("config.debugMode")));
 			
 			
 			LOGGER = new Logger(CONFIG.isDebug(), "SHERLOCK", CONFIG.getLogPath());
-			CONAN_MODULE = new ConanModule(CONFIG);
-			CONAN_DEEP_MODULE = new ConanDeepModule(CONFIG);
+			SHERLOCK_MODULE = new SherlockModule(CONFIG);
 			
 			MEM_TIT_HASHED_LIST = new HashMap<String, HashMap<String, List<String>>> ();
 		} catch (Exception e) {
@@ -70,143 +71,172 @@ public class ConanExecutor {
 	
 	
 	/**
-	 * 엑셀로 된, 파일을 읽어서 FGF 포맷으로 변경한다
+	 * 초기화 단계, FGF를 읽어서 hashed-itdc를 생성한다
 	 */
-	public void pre() {
+	public void initialize() {
+		// apply_idx를 기반으로 res_idx,mem_idx의 hashmap 생성
+		LOGGER.info("BEGIN: get apply data...");
+		HashMap<String, String> RES_MEM_MAP = getKeyValue("res-mem", 0, 1, isBulk);
+		LOGGER.info("END: get apply data...");
 		
-		LOGGER.info("BEGIN: start conan executor");
+		// 전체 자기소개서 데이터를 가져온다 (apply 에 해당되는 것만)
+		LOGGER.info("BEGIN: read intro doc & morph analyze...");
+		List<HashedItdcVO> RESULT_LIST = SHERLOCK_MODULE.readIntroDoc(RES_MEM_MAP, isBulk);
+		LOGGER.info("END: " + RESULT_LIST.size() + " read intro doc & morph analyze...");
 		
-		/*
-		LOGGER.info("BEGIN: EXCEL to FGF"); 
-		String name = "토목_신입";
-		HashMap<String, IntroDocVO> EXCEL_MAP = CONAN_MODULE.readResultExcel(name);
-		CONAN_MODULE.setContentExcel(name, EXCEL_MAP);
-		CONAN_MODULE.makeFGF(EXCEL_MAP, name);
-		LOGGER.info("END: EXCEL to FGF");
-		*/
-		
-		LOGGER.info("BEGIN: make job dictionary");
-		// job 별 직업 사전 생성 (label = 1, ques_clss = 0)
-		// CONAN_MODULE.makeJobDic();
-		LOGGER.info("END: make job dictionary");
-		
-		LOGGER.info("BEGIN: verify with job dictionary");
-		// 직업사전으로 직무역량 검증, pass, fail
-		/*HashMap<String, String> TASK_MAP = CONAN_MODULE.readTaskDic(); 
-		CONAN_MODULE.verifyJob(TASK_MAP);*/
-		LOGGER.info("END: verify with job dictionary");
-		
-		LOGGER.info("BEGIN: calculate tf");
-		String[] quesClssArr = {"1","2","3","4"};
-		String[] jobArr = {"건축","기계","사무","전기","토목","화학"};
-		
-		// 직업(job) + 질문별(ques_clss, 총 4개) 별 tf 수행
-		// 직업별 tf csv(키워드, 카운트, 등장비율) 생성
-		/*for(String quesClss : quesClssArr) {
-			for(String job : jobArr) {
-				List<String> tfList = CONAN_MODULE.tf(quesClss, job);
-				int total = CONAN_MODULE.makeTfCsv(tfList, quesClss, job);
-			}
-		}*/
-		
-		LOGGER.info("END: calculate tf");
-		
-		// 직업별 IDF를 구하여, 최종 CSV를 생성해낸다, 나중에 작업
-		/*LOGGER.info("BEGIN: calculate idf");
-		LOGGER.info("ENd: calculate idf");*/
-		
-		LOGGER.info("BEGIN: make training & test data");
-		// 최종 CSV를 기반으로 자소서별 Training 데이터와 검증용 데이터를 생성한다
-		//HashMap<String, List<String>> termMap = new HashMap<String, List<String>> ();  
-		for(String quesClss : quesClssArr) {
-			for(String job : jobArr) {
-				//termMap.put(job + "-" + quesClss, CONAN_MODULE.readTermList(job, quesClss));
-				List<String> termList = CONAN_MODULE.readTermList(job, quesClss);
-				
-				System.out.println(quesClss + "=>" + termList.size());
-				// make training data
-				CONAN_MODULE.makeTrainNTestCSV(termList, job, quesClss);
-				// make test data
-			}
-		}
-		LOGGER.info("END: make training & test data");
-		
-		LOGGER.info("END: start conan executor");
+		// hashed-itdc 파일들을 생성한다
+		LOGGER.info("BEGIN: make hashed itdc...");
+		chkError(SHERLOCK_MODULE.makeHashedItdcCSV(RESULT_LIST, isBulk), "MAKE HASHED-ITDC");
+		LOGGER.info("END: make hashed itdc...");
 	}
 	
 	
-	public void parseExcel() {
-		LOGGER.info("BEGIN: EXCEL to FGF");
-		String[] jobs = {"사무","ICT","건축","기계","전기","토목","화학"};
-		String[] exps = {"신입","경력"};
+	/**
+	 * 분석을 위한 2번째 단계, hashed-itdc 파일을 읽어서 최종 분석을 위한 inv-data 생성 
+	 */
+	public void pre() {
+		// hashed-itdc를 읽어서, result list를 생성한다
+		LOGGER.info("BEGIN: get hashed itdc...");
+		List<HashMap<String, String>> HASHED_LIST = SHERLOCK_MODULE.getHashedItdc(isBulk);
+		LOGGER.info("END: get hashed itdc...");
 		
-		for(String job : jobs) {
-			for(String exp : exps ) {
-				HashMap<String, IntroDocVO> EXCEL_MAP = CONAN_MODULE.readResultExcel(job, exp);
+		// inverse table을 생성한다
+		LOGGER.info("BEGIN: hashed-itdc to inv data...");
+		HashMap<String, HashMap<String, String>> invData = SHERLOCK_MODULE.makeInvData(isBulk);
+		LOGGER.info("END: hashed-itdc to inv data...");
+		
+		// inverse data csv를 생성한다
+		LOGGER.info("BEGIN: make inv-data csv...");
+		chkError(SHERLOCK_MODULE.makeInvDataCSV(invData, isBulk), "MAKE COPY-RATE");
+		LOGGER.info("END: make inv-data csv...");
+	}
+	
+	
+	/**
+	 * inv-data를 읽어서, 전체 표절율을 구한다.
+	 * 
+	 * @param isBulk
+	 */
+	public void execute() {
+		
+		// apply_idx를 기반으로 res_idx,mem_idx의 hashmap 생성 및 apply list 생성
+		LOGGER.info("BEGIN: get apply data...");
+		HashMap<String, String> RES_MEM_MAP2 = getKeyValue("res-mem", 0, 1, true);
+		LOGGER.info("END: get apply data...");		
+		
+		LOGGER.info("BEGIN: get mem res data");
+		HashMap<String, String> RES_MEM_MAP = getKeyValue("apply", 2, 3, isBulk);
+		LOGGER.info("END: get mem res data");
+		
+		// inv-data csv를 읽은 후, res_idx별 표절율을 생성
+		// (동일 mem_idx일 경우, 해당 res_idx 계산 제외)
+		LOGGER.info("BEGIN: set inverse data");
+		HashMap<String, List<String>> INV_MAP = SHERLOCK_MODULE.setInvData(isBulk);
+		LOGGER.info("END: " + INV_MAP.size() + " set inverse data");
+		
+		// 추가로 appy_idx에 존재하는 res-idx를 기반으로, res-idx->seq->sentence를 맵에 넣는다.
+		LOGGER.info("BEGIN: set sentence data");
+		HashMap<String, HashMap<String, List<String>>> SENTENCE_MAP = SHERLOCK_MODULE.setSentenceMap(RES_MEM_MAP, isBulk);
+		LOGGER.info("END: " + SENTENCE_MAP.size() + " set sentence data");
 				
-				if(EXCEL_MAP != null && EXCEL_MAP.size() > 0) {
-					CONAN_MODULE.makeFGF(EXCEL_MAP, job);
-					LOGGER.info(job + " " + exp + " complete.");
+		// 시퀀스별 표절율을 구한 후, 가장 높은 max 표절율을 해당 값에 매칭한 후, 매칭되는 이력서 번호를 넣는다
+		HashMap<String, String> lastMap = new HashMap<String, String> ();
+		for(String resIdx : SENTENCE_MAP.keySet()) {
+			HashMap<String, List<String>> seqMap = SENTENCE_MAP.get(resIdx);
+			
+			for(String seq : seqMap.keySet()) {
+				HashMap<String, Integer> scoreMap = new HashMap<String, Integer> (); 
+				List<String> sentenceList = seqMap.get(seq);
+				
+				for(String sentence : sentenceList) {
+					List<String> targetList = INV_MAP.get(sentence);
+					
+					for(String target : targetList) {
+						int score = 1;
+						if(scoreMap.containsKey(target)) {
+							score += scoreMap.get(target);
+						}
+						
+						scoreMap.put(target, score);
+					}
 				}
+				
+				// score map에서 가장 높은 값
+				Map<String, Integer> resultMap = scoreMap.entrySet().stream()
+		                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+		                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+		                        (oldValue, newValue) -> oldValue, LinkedHashMap::new));
+				
+				int maxCnt = 0;
+				String maxResIdx = "";
+				for(String target : resultMap.keySet()) {
+					String targetRes = target.substring(0, target.indexOf("_"));
+					
+					if(RES_MEM_MAP2.containsKey(targetRes) && RES_MEM_MAP2.containsKey(resIdx) &&
+							RES_MEM_MAP2.get(targetRes).equals(RES_MEM_MAP2.get(resIdx))) {
+						continue;
+					}
+					
+					if(!RES_MEM_MAP2.containsKey(targetRes))
+						continue;
+					
+					maxCnt = resultMap.get(target);
+					maxResIdx = target;
+					
+					break;
+				}
+				
+				lastMap.put(resIdx + "_" + seq, maxResIdx + "," + (double)maxCnt/sentenceList.size());				
+			} // seq
+		} // res
+		
+		// 항목별 데이터를 합친다, res_idx, seq, 0.2
+		HashMap<String, HashMap<String, Double>> resultMap = new HashMap<String, HashMap<String, Double>> ();
+		for(String key : lastMap.keySet()) {
+			String[] value = lastMap.get(key).split(",");
+			String[] pk = key.split("_");
+			
+			HashMap<String, Double> scoreMap = null;
+			if(resultMap.containsKey(pk[0])) {
+				scoreMap = resultMap.get(pk[0]);
+			} else {
+				scoreMap = new HashMap<String, Double> ();
 			}
+			
+			// 값이 존재하지 않는다면
+			if(value[0].length() == 0) {
+				scoreMap.put(pk[1], 0.0);
+			} else {
+				// 값이 있다면, res_idx를 넣는다
+				scoreMap.put(value[0], Double.parseDouble(value[1]));
+			}
+			resultMap.put(pk[0], scoreMap);
 		}
 		
-		LOGGER.info("END: EXCEL to FGF");
+		// 최종적으로 표절률을 csv로 생성한다
+		LOGGER.info("BEGIN: make copy rate...");
+		boolean success = SHERLOCK_MODULE.makeCopyRateCSV(resultMap, true);
+		LOGGER.info("END: make copy rate...");		
+
+		// apply list를 읽은 후, 해당되는 res_idx와 표절율을 가지고 온 후, copyrate_bulk.csv 생성
 	}
 	
 	
 	/**
 	 * 연산을 수행하는 스크립터
 	 */
-	public void execute() {
-		
-		//LOGGER.info("BEGIN: make test data");
-		// 자기소개서 데이터를 테스트용 데이터로 변환한다
-		//String[] quesClssArr = {"1","2","3","4"};
-		String[] quesClssArr = {"1","2","3","4"};
-		String[] jobArr = {"건축"};
-		//String[] jobArr = {"건축","기계","사무","전기","토목","화학"};
-		
-		HashMap<String, HashMap<String, Object>> scoreMap = new HashMap<String, HashMap<String, Object>> ();
-		// blind map을 읽는다
-		HashMap<String, String> blindMap = CONAN_MODULE.blindMap();
-		
-		for(String job : jobArr) {
-			for(String quesClss : quesClssArr) {
-				List<String> termList = CONAN_MODULE.readTermList(job, quesClss);
-				System.out.println(quesClss + "=>" + termList.size());
-				
-				// make training data
-				CONAN_MODULE.makeTestCSV(termList, job, quesClss, blindMap, scoreMap);
-			}
-		}
-		LOGGER.info("END: make test data");
-		
-		LOGGER.info("BEGIN: call deep learning");
-		for(String job : jobArr) {
-			for(String quesClss : quesClssArr) {
-				CONAN_DEEP_MODULE.analysis(job, quesClss, scoreMap);
-			}
-		}
-		LOGGER.info("END: call deep learning");
-		
-		/*for(String pk : scoreMap.keySet()) {
-			HashMap<String, Object> map = scoreMap.get(pk);
-			for(String key : map.keySet()) {
-				System.out.println(key);
-			}
-		}*/
-		
-		LOGGER.info("BEGIN: print score map");
-		CONAN_MODULE.makeScoreCSV(scoreMap);
-		LOGGER.info("END: print score map");
+	public void executeAsis() {
+		// 먼저 apply 데이터를 읽은 후, res_idx와 mem_idx를 세팅한다
+		System.out.println("BEGIN: get mem res data");
+		HashMap<String, HashMap<String, ApplyVO>> MEM_APPLY_MAP = getApplyDataByMem();
+		System.out.println("END: get mem res data");
 		
 		System.out.println("BEGIN: set dictionary");
 		//HashMap<String, String> titMap = setTitleDic();
 		System.out.println("END: set dictionary");
 		
 		// 타이틀, 해시, 이력서 번호의 맵으로 세팅한다
-		/*long startTime = System.currentTimeMillis();
+		long startTime = System.currentTimeMillis();
 		System.out.println("BEGIN: TIT_HASHED_MEM_LIST");
 		HashMap<String, HashMap<String, List<String>>> TIT_HASHED_MEM_LIST = getHashedData();
 		System.out.println("END: " + TIT_HASHED_MEM_LIST.size() + " TIT_HASHED_MEM_LIST");
@@ -248,9 +278,9 @@ public class ConanExecutor {
 					score += cntMap.get(mem);
 				}
 				cntMap.put(mem, score);
-			}*/
+			}
 			
-			/*if(MEM_APPLY_MAP.containsKey(memIdx)) {
+			if(MEM_APPLY_MAP.containsKey(memIdx)) {
 				// 표절 리스트
 				for(String targetMem : cntMap.keySet()) {
 					HashMap<String, ApplyVO> recApplyMap = MEM_APPLY_MAP.get(memIdx);
@@ -263,8 +293,9 @@ public class ConanExecutor {
 			}
 		}
 		
+		
 		long endTime = System.currentTimeMillis();
-		LOGGER.info("getHashedData elapsed " + (endTime-startTime) + "(ms)");*/		
+		LOGGER.info("getHashedData elapsed " + (endTime-startTime) + "(ms)");
 	}
 	
 	
@@ -273,12 +304,16 @@ public class ConanExecutor {
 	 * 
 	 * @return
 	 */
-	public HashMap<String, String> getApplyKeyValue(int key, int value) {
+	public HashMap<String, String> getKeyValue(String folderNm, int key, int value, boolean isBulk) {
 		HashMap<String, String> rtnMap = new HashMap<String, String> (); 
 		
 		BufferedReader br = null;
-		File[] applys = null;		
-		applys = new File(CONFIG.getDataPath() + "raw-data/apply/inc/").listFiles();
+		File[] applys = null;
+		if(isBulk) {
+			applys = new File(CONFIG.getDataPath() + "raw-data/" + folderNm + "/bulk/").listFiles();
+		} else {
+			applys = new File(CONFIG.getDataPath() + "raw-data/" + folderNm + "/inc/").listFiles();
+		}
 		
 		int cnt = 0;
 		
@@ -294,7 +329,7 @@ public class ConanExecutor {
 					
 					if(line.trim().length() > 0 && cnt > 1) {
 						String[] temp = line.split(",");
-						rtnMap.put(temp[2], temp[3]);
+						rtnMap.put(temp[key], temp[value]);
 					}
 				}
 
@@ -529,3 +564,4 @@ public class ConanExecutor {
 		}
 	}
 }
+

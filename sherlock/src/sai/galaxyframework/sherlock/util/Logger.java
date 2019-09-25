@@ -1,4 +1,4 @@
-package com.saramin.sai.util;
+package sai.galaxyframework.sherlock.util;
 
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;

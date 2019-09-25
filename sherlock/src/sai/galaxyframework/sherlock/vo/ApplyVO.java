@@ -1,4 +1,4 @@
-package com.saramin.sai.vo;
+package sai.galaxyframework.sherlock.vo;
 
 
 /**
